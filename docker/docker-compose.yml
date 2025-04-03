@@ -1,0 +1,25 @@
+version: '3'
+services:
+  frontend:
+    image: nginx:alpine
+    ports: ["80:80"]
+    volumes:
+      - ../frontend/docs/.vitepress/dist:/usr/share/nginx/html
+      - ../frontend/nginx:/etc/nginx/conf.d
+    depends_on:
+      - backend
+
+  backend:
+    build: ../backend
+    ports: ["3000:3000"]
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blog123
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:
