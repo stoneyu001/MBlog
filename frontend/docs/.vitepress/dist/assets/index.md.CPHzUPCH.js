@@ -1,1 +1,0 @@
-import{_ as t,c as a,o as n,j as r}from"./chunks/framework.Ba0MnFCs.js";const _=JSON.parse('{"title":"","description":"","frontmatter":{},"headers":[],"relativePath":"index.md","filePath":"index.md"}'),o={name:"index.md"};function s(d,e,i,c,p,l){return n(),a("div",null,e[0]||(e[0]=[r("p",null,"小小冯昕洋",-1)]))}const f=t(o,[["render",s]]);export{_ as __pageData,f as default};
