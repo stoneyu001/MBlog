@@ -2,27 +2,30 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "MY Blog",
-  description: "My Blog",
+  title: "StoneYu Blog",
+  description: "share and learn",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Examples', link: '/markdown-examples' }
+      { text: '文章', link: '/articles/' },
+      { text: '关于', link: '/about' }
     ],
-
+    search: {
+      provider: 'local'
+    },
     sidebar: [
       {
-        text: 'Examples',
+        text: '目录',
         items: [
-          { text: 'Markdown Examples', link: '/markdown-examples' },
-          { text: 'Runtime API Examples', link: '/api-examples' }
+          { text: '早午代餐或小零食', link: '/articles/早午代餐或小零食.md' },
+          { text: '文明6', link: '/articles/文明6.md' }
         ]
       }
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/vuejs/vitepress' }
+      { icon: 'github', link: 'https://github.com/stoneyu001/MBlog' }
     ]
   }
 })
