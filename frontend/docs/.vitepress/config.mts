@@ -8,13 +8,14 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: '文章', link: '/articles/' },
+      { text: '文章1', link: '/articles/' },
       { text: '关于', link: '/about' }
     ],
     search: {
       provider: 'local'
     },
-    sidebar: [
+    sidebar: {
+      '/articles/': [                     //动态侧边栏？
       {
         text: '目录',
         items: [
@@ -23,7 +24,7 @@ export default defineConfig({
         ]
       }
     ],
-
+  },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/stoneyu001/MBlog' }
     ]

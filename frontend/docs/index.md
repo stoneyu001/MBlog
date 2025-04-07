@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "StoneYu Blog"
-  text: "My Blog"
-  tagline: My great project tagline
+  text: "share and learn"
+  tagline: 
   actions:
     - theme: brand
       text: Markdown Examples
