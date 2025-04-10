@@ -14,17 +14,16 @@ export default defineConfig({
     search: {
       provider: 'local'
     },
-    sidebar: {
-      '/articles/': [                     //动态侧边栏？
+    sidebar: [                     //动态侧边栏？
       {
         text: '目录',
         items: [
-          { text: '早午代餐或小零食', link: '/articles/早午代餐或小零食.md' },
+          { text: 'test', link: '/articles/test.md' },
           { text: '文明6', link: '/articles/文明6.md' }
         ]
       }
     ],
-  },
+
     socialLinks: [
       { icon: 'github', link: 'https://github.com/stoneyu001/MBlog' }
     ]

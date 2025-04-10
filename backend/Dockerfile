@@ -1,6 +1,9 @@
 # 使用官方 Go 轻量镜像
 FROM golang:1.24.0-alpine
 
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GOSUMDB=sum.golang.google.cn
+
 # 设置容器内工作目录
 WORKDIR /app
 

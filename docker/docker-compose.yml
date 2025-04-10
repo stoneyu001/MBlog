@@ -16,8 +16,11 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: blog
-      POSTGRES_PASSWORD: blog123
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 4341289
+      POSTGRES_DB: blog_db    
+    ports:  # 新增此行
+      - "5432:5432"  # 将容器5432映射到宿主机5432
     volumes:
       - pg_data:/var/lib/postgresql/data
 
