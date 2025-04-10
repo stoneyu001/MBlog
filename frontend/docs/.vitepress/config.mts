@@ -14,7 +14,7 @@ export default defineConfig({
     search: {
       provider: 'local'
     },
-    sidebar: [                     //动态侧边栏？
+    sidebar: [                     
       {
         text: '目录',
         items: [
