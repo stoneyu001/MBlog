@@ -1,4 +1,3 @@
-version: '3'
 services:
   frontend:
     image: nginx:alpine
@@ -19,8 +18,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 4341289
       POSTGRES_DB: blog_db    
-    ports:  # 新增此行
-      - "5432:5432"  # 将容器5432映射到宿主机5432
+    ports:
+      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
 

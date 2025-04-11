@@ -1,6 +1,8 @@
 # 使用官方 Go 轻量镜像
 FROM golang:1.24.0-alpine
 
+# 设置 Go 模块代理
+ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GOSUMDB=sum.golang.google.cn
 
@@ -19,6 +21,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /blog
 
 # 声明服务端口
 EXPOSE 3000
-
+# 在backend/Dockerfile添加静态文件复制
+COPY static/ /app/static/
 # 启动命令
 CMD ["/blog"]
