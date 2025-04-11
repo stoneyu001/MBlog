@@ -1,0 +1,34 @@
+# 环境变量文件
+.env
+.env.*
+
+# 编辑器和IDE文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 依赖目录
+node_modules/
+vendor/
+
+# 编译输出
+frontend/docs/.vitepress/dist/
+frontend/docs/.vitepress/cache/
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 数据库文件
+*.db
+*.sqlite
+
+# Docker 数据卷
+docker-volumes/
+
+# 临时文件
+tmp/
+temp/
+.cursor/ 
