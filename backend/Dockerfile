@@ -21,7 +21,5 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /blog
 
 # 声明服务端口
 EXPOSE 3000
-# 在backend/Dockerfile添加静态文件复制
-COPY static/ /app/static/
 # 启动命令
 CMD ["/blog"]

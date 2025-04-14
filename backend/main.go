@@ -51,8 +51,6 @@ func main() {
 
 		c.JSON(http.StatusCreated, article)
 	})
-	// 托管管理后台静态文件（创建backend/static目录）
-	r.Static("/admin", "./static")
 
 	// 新增获取全部文章接口（用于前端展示）
 	r.GET("/api/articles", func(c *gin.Context) {
