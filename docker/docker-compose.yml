@@ -11,6 +11,8 @@ services:
   backend:
     build: ../backend
     ports: ["${BACKEND_PORT}:3000"]
+    volumes:
+      - ../frontend:/app/frontend
     environment:
       - DB_HOST=db
       - DB_USER=${POSTGRES_USER}

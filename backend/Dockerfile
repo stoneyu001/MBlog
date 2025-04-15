@@ -13,13 +13,23 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# 复制所有源代码
+# 创建并准备静态文件目录
+RUN mkdir -p /app/static
+
+# 复制静态文件
+COPY static/admin.html /app/static/index.html
+
+# 复制其他源代码
 COPY . .
+
+# 安装 Node.js 和 npm（用于构建前端）
+RUN apk add --no-cache nodejs npm
 
 # 构建可执行文件（禁用CGO确保静态二进制）
 RUN CGO_ENABLED=0 GOOS=linux go build -o /blog
 
 # 声明服务端口
 EXPOSE 3000
+
 # 启动命令
 CMD ["/blog"]
