@@ -1,0 +1,38 @@
+/* 自定义变量 */
+:root {
+  --vp-c-brand: #646cff;
+  --vp-c-brand-light: #747bff;
+  --vp-c-brand-dark: #535bf2;
+}
+
+/* 中文字体优化 */
+:root {
+  --vp-font-family-base: "Inter var experimental", "Inter var", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  --vp-font-family-mono: "Fira Code VF", "Fira Code", ui-monospace, SFMono-Regular,
+    "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* 移动端适配 */
+@media (max-width: 960px) {
+  .VPNav {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* 文章样式优化 */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4,
+.vp-doc h5,
+.vp-doc h6 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.vp-doc p {
+  line-height: 1.7;
+} 
