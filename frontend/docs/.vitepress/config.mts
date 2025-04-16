@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import type { DefaultTheme } from 'vitepress'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -30,7 +31,42 @@ export default defineConfig({
       { text: '关于', link: '/about' }
     ],
     search: {
-      provider: 'local'
+      provider: 'local',
+      options: {
+        detailedView: true, // 显示完整结果
+        locales: {
+          zh: {
+            translations: {
+              button: {
+                buttonText: '搜索文档',
+                buttonAriaLabel: '搜索文档'
+              },
+              modal: {
+                noResultsText: '未找到相关结果',
+                resetButtonTitle: '清除查询条件',
+                footer: {
+                  selectText: '选择',
+                  navigateText: '切换'
+                }
+              }
+            }
+          }
+        },
+        // @ts-ignore
+        fields: ['title', 'content'], // 索引字段
+        storeFields: ['title', 'href'], // 返回字段
+        searchOptions: {
+          prefix: true, // 前缀匹配
+          fuzzy: 0.2, // 模糊匹配容错率
+          boost: { title: 4, content: 1 } // 权重配置
+        },
+        // 中文分词优化
+        tokenize: (text) => {
+          return text
+            .split(/[\s\-，。；：！？、]+/) // 基本中文分词
+            .filter(term => term.length > 1) // 过滤短词
+        }
+      } as DefaultTheme.LocalSearchOptions
     },
     sidebar: [
       {
