@@ -28,6 +28,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: '文章', link: '/articles/' },
+      { text: '埋点示例', link: '/tracking-example' },
       { text: '关于', link: '/about' }
     ],
     search: {
@@ -72,6 +73,13 @@ export default defineConfig({
       {
         text: '所有文章',
         items: getArticles(path.resolve(__dirname, '../articles'))
+      },
+      {
+        text: '功能演示',
+        items: [
+          { text: '埋点示例', link: '/tracking-example' },
+          { text: 'Markdown示例', link: '/markdown-examples' }
+        ]
       }
     ],
     socialLinks: [
