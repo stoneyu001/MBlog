@@ -6,11 +6,11 @@ import createTrackingPlugin from '../plugins/tracking'
 
 // 创建跟踪插件
 const trackingPlugin = createTrackingPlugin({
-  endpoint: '/api/tracking/batch',
+  endpoint: 'http://localhost:3000/api/tracking/batch',
   batchSize: 10,
   batchInterval: 5000,
-  debug: process.env.NODE_ENV === 'development', // 开发环境下启用调试
-  sampling: 1.0, // 100%采样
+  debug: false,
+  sampling: 0.5, // 50%采样率，根据实际需求调整
   excludePaths: [
     '/admin*', // 排除管理界面
   ],

@@ -30,8 +30,6 @@ func NewTrackingService(db *sql.DB) *TrackingService {
 
 	// 启动批处理协程
 	go ts.batchProcessor()
-	// 启动表分区维护协程
-	go ts.partitionMaintainer()
 
 	return ts
 }
@@ -93,7 +91,7 @@ func (ts *TrackingService) flushBuffer(events []*TrackEvent) {
 	// 开始事务
 	tx, err := ts.db.Begin()
 	if err != nil {
-		log.Printf("错误: 开始事务失败: %v", err)
+		log.Printf("事务启动失败: %v", err)
 		return
 	}
 
@@ -105,7 +103,6 @@ func (ts *TrackingService) flushBuffer(events []*TrackEvent) {
 	`)
 
 	if err != nil {
-		log.Printf("错误: 准备插入语句失败: %v", err)
 		tx.Rollback()
 		return
 	}
@@ -115,7 +112,6 @@ func (ts *TrackingService) flushBuffer(events []*TrackEvent) {
 	for _, event := range events {
 		metadata, err := json.Marshal(event.Metadata)
 		if err != nil {
-			log.Printf("警告: 元数据JSON序列化失败: %v", err)
 			continue
 		}
 
@@ -133,52 +129,13 @@ func (ts *TrackingService) flushBuffer(events []*TrackEvent) {
 		)
 
 		if err != nil {
-			log.Printf("警告: 插入跟踪事件失败: %v", err)
+			continue
 		}
 	}
 
 	// 提交事务
 	if err := tx.Commit(); err != nil {
-		log.Printf("错误: 提交事务失败: %v", err)
 		tx.Rollback()
 		return
-	}
-
-	log.Printf("成功: 批量保存了 %d 条埋点数据", len(events))
-}
-
-// partitionMaintainer 分区维护器 - 每天定时创建下一天的分区
-func (ts *TrackingService) partitionMaintainer() {
-	// 每天凌晨1点检查并创建新分区
-	for {
-		now := time.Now()
-		next := time.Date(now.Year(), now.Month(), now.Day(), 1, 0, 0, 0, now.Location()).Add(24 * time.Hour)
-
-		// 休眠到下次检查时间
-		time.Sleep(next.Sub(now))
-
-		// 创建明天和后天的分区表
-		ts.createPartition(1)
-		ts.createPartition(2)
-	}
-}
-
-// createPartition 创建指定日期偏移的分区表
-func (ts *TrackingService) createPartition(dayOffset int) {
-	targetDay := time.Now().AddDate(0, 0, dayOffset)
-	partitionDay := targetDay.Format("20060102")
-	nextDay := targetDay.AddDate(0, 0, 1).Format("20060102")
-
-	query := `
-	CREATE TABLE IF NOT EXISTS track_events_` + partitionDay + ` 
-	PARTITION OF track_events
-	FOR VALUES FROM ('` + partitionDay + ` 00:00:00') TO ('` + nextDay + ` 00:00:00');
-	`
-
-	_, err := ts.db.Exec(query)
-	if err != nil {
-		log.Printf("错误: 创建分区表失败: %v", err)
-	} else {
-		log.Printf("成功: 创建分区表 track_events_%s", partitionDay)
 	}
 }
