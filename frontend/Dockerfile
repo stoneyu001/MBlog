@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM docker.xuanyuan.me/library/node:18-alpine
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY . .
 RUN npm run docs:build
 
 # 使用 nginx 来服务静态文件
-FROM nginx:alpine
+FROM docker.xuanyuan.me/library/nginx:alpine
 COPY --from=0 /app/docs/.vitepress/dist /usr/share/nginx/html
 EXPOSE 80
 

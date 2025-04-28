@@ -59,18 +59,6 @@ MBlog/
 
 ## 启动方式
 
-### 开发环境启动
-```bash
-# 启动全部服务
-docker-compose up
-
-# 仅启动后端
-docker-compose up backend
-
-# 仅启动前端
-docker-compose up frontend
-```
-
 ### 生产环境启动
 ```bash
 # 后台启动所有服务
