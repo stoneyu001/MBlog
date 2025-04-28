@@ -36,9 +36,9 @@ type FileRequest struct {
 }
 
 func main() {
-	// 初始化数据库连接（使用端口5433）
+	// 初始化数据库连接（使用端口5432 - 容器内部端口）
 	dbHost := getEnv("DB_HOST", "db")
-	dbPort := getEnv("DB_PORT", "5433")
+	dbPort := getEnv("DB_PORT", "5432")
 	dbUser := getEnv("POSTGRES_USER", "postgres")
 	dbPass := getEnv("POSTGRES_PASSWORD", "")
 	dbName := getEnv("POSTGRES_DB", "blog_db")

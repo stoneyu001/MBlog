@@ -9,8 +9,8 @@ const trackingPlugin = createTrackingPlugin({
   endpoint: 'http://localhost:3000/api/tracking/batch',
   batchSize: 10,
   batchInterval: 5000,
-  debug: false,
-  sampling: 0.5, // 50%采样率，根据实际需求调整
+  debug: true,
+  sampling: 1, // 100%采样率
   excludePaths: [
     '/admin*', // 排除管理界面
   ],

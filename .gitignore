@@ -16,6 +16,8 @@ vendor/
 # 编译输出
 frontend/docs/.vitepress/dist/
 frontend/docs/.vitepress/cache/
+gin-bin
+**/gin-bin
 
 # 日志文件
 *.log

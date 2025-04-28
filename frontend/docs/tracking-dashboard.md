@@ -118,7 +118,7 @@ const fetchData = async () => {
     }
     
     // 发送请求
-    const response = await fetch(`/api/tracking/analytics/overview?start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`)
+    const response = await fetch(`http://localhost:3000/api/tracking/analytics/overview?start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`)
     
     if (!response.ok) {
       throw new Error('获取数据失败')
@@ -126,13 +126,13 @@ const fetchData = async () => {
     
     const data = await response.json()
     stats.value = {
-      totalEvents: data.total_events || 0,
-      pageViews: data.page_views || 0,
-      uniqueVisitors: data.unique_visitors || 0,
-      clickEvents: data.click_events || 0,
+      totalEvents: data.stats.total_events || 0,
+      pageViews: data.stats.page_views || 0,
+      uniqueVisitors: data.stats.unique_visitors || 0,
+      clickEvents: data.stats.click_events || 0,
       topPages: data.top_pages || [],
-      topElements: data.top_elements || [],
-      eventsByHour: data.events_by_hour || []
+      topElements: [],  // 后端暂未实现元素统计
+      eventsByHour: []  // 后端暂未实现小时统计
     }
   } catch (err) {
     error.value = err.message || '获取数据失败，请稍后重试'

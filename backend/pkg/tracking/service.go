@@ -88,6 +88,8 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		return
 	}
 
+	log.Printf("开始批量写入 %d 条数据", len(events))
+
 	// 开始事务
 	tx, err := ts.db.Begin()
 	if err != nil {
@@ -112,7 +114,7 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 	defer stmt.Close()
 
 	// 批量插入
-	for _, event := range events {
+	for i, event := range events {
 		metadata, err := json.Marshal(event.Metadata)
 		if err != nil {
 			log.Printf("元数据序列化失败: %v", err)
@@ -151,8 +153,13 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		)
 
 		if err != nil {
-			log.Printf("插入事件失败: %v", err)
+			log.Printf("插入事件(%d/%d)失败: %v [事件类型: %s]", i+1, len(events), err, event.EventType)
 			continue
+		} else {
+			if i == 0 || i == len(events)-1 {
+				log.Printf("成功插入事件(%d/%d): 类型=%s, 用户ID=%s, 会话ID=%s",
+					i+1, len(events), event.EventType, event.UserID, event.SessionID)
+			}
 		}
 	}
 

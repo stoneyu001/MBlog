@@ -1,41 +1,30 @@
 services:
-  # 前端开发服务 - 用于热更新开发
-  frontend-dev:
-    image: node:18-alpine
-    working_dir: /app
-    volumes:
-      - ../frontend:/app
-    ports:
-      - "5173:5173"
-    command: npm run dev -- --host
-    environment:
-      - NODE_ENV=development
-
-  # 保留原有nginx静态服务（构建后访问）
+  # 提供静态网站服务
   frontend:
-    image: nginx:alpine
-    ports: ["${PORT}:80"]
-    volumes:
-      - ../frontend/docs/.vitepress/dist:/usr/share/nginx/html
-      - ../frontend/nginx:/etc/nginx/conf.d
+    build: 
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports: 
+      - "${FRONTEND_PORT}:80"
     depends_on:
       - backend
 
-  # 后端服务 - 添加源码挂载和改用gin热加载
+  # 后端API服务
   backend:
     build: 
       context: ../backend
-      dockerfile: Dockerfile.dev
-    ports: ["${BACKEND_PORT}:3000"]
-    volumes:
-      - ../backend:/app
-      - ../frontend:/app/frontend
+      dockerfile: Dockerfile
+    ports: 
+      - "${BACKEND_PORT}:3000"
     environment:
-      - DB_HOST=db
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
+      DB_HOST: db
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+    depends_on:
+      - db
 
+  # 数据库服务
   db:
     image: postgres:15
     environment:
@@ -48,4 +37,4 @@ services:
       - pg_data:/var/lib/postgresql/data
 
 volumes:
-  pg_data:
+  pg_data: 
