@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
 	"blog/pkg/filemanager"
 	"blog/pkg/tracking" // 导入跟踪包
@@ -11,6 +12,15 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq" // 必须添加的PostgreSQL驱动
 )
+
+// getEnv 获取环境变量，如果不存在则返回默认值
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
 
 type Article struct {
 	ID        int    `json:"id"`
@@ -26,18 +36,26 @@ type FileRequest struct {
 }
 
 func main() {
-	// 初始化数据库连接（直接简单连接）
-	db, err := sql.Open("postgres",
-		"postgres://postgres:4341289@db:5432/blog_db?sslmode=disable")
+	// 初始化数据库连接（使用端口5433）
+	dbHost := getEnv("DB_HOST", "db")
+	dbPort := getEnv("DB_PORT", "5433")
+	dbUser := getEnv("POSTGRES_USER", "postgres")
+	dbPass := getEnv("POSTGRES_PASSWORD", "")
+	dbName := getEnv("POSTGRES_DB", "blog_db")
+
+	// 构建连接字符串
+	// 注意：密码默认值为空字符串，需要在环境变量中设置
+	dbURL := "postgres://" + dbUser
+	if dbPass != "" {
+		dbURL += ":" + dbPass
+	}
+	dbURL += "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
+
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal("数据库连接失败:", err)
 	}
 	defer db.Close()
-
-	// 初始化跟踪表
-	if err := tracking.CreateTrackingTables(db); err != nil {
-		log.Printf("警告: 初始化跟踪表失败: %v", err)
-	}
 
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)

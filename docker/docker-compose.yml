@@ -1,4 +1,17 @@
 services:
+  # 前端开发服务 - 用于热更新开发
+  frontend-dev:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host
+    environment:
+      - NODE_ENV=development
+
+  # 保留原有nginx静态服务（构建后访问）
   frontend:
     image: nginx:alpine
     ports: ["${PORT}:80"]
@@ -8,10 +21,14 @@ services:
     depends_on:
       - backend
 
+  # 后端服务 - 添加源码挂载和改用gin热加载
   backend:
-    build: ../backend
+    build: 
+      context: ../backend
+      dockerfile: Dockerfile.dev
     ports: ["${BACKEND_PORT}:3000"]
     volumes:
+      - ../backend:/app
       - ../frontend:/app/frontend
     environment:
       - DB_HOST=db
