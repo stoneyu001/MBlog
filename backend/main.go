@@ -60,8 +60,10 @@ func main() {
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)
 
-	// 初始化分析服务
-	analyticsService := tracking.NewAnalyticsService(db)
+	// 初始化埋点数据库表
+	if err := tracking.InitDB(db); err != nil {
+		log.Printf("警告: 初始化埋点数据库表失败: %v", err)
+	}
 
 	// 初始化文件管理器
 	if err := filemanager.Init(); err != nil {
@@ -90,9 +92,6 @@ func main() {
 
 	// 注册跟踪API处理程序
 	trackingService.RegisterHandlers(r)
-
-	// 注册分析API处理程序
-	analyticsService.RegisterHandlers(r.Group("/api/tracking"))
 
 	r.GET("/api/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
@@ -210,10 +209,25 @@ func main() {
 	})
 
 	// 托管管理界面
-	r.StaticFile("/admin", "./static/index.html")
-	r.StaticFile("/admin/", "./static/index.html")
-	r.Static("/static", "./static")
+	r.StaticFile("/admin", "/app/static/admin.html")
+	r.StaticFile("/admin/", "/app/static/admin.html")
+	r.Static("/static", "/app/static")
 
 	// 启动服务
 	r.Run(":3000")
+}
+
+// 获取当前工作目录
+func getWorkingDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err.Error()
+	}
+	return dir
+}
+
+// 检查文件是否存在
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

@@ -2,7 +2,6 @@ package tracking
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -24,8 +23,8 @@ func NewTrackingService(db *sql.DB) *TrackingService {
 		db:             db,
 		unpartBuffer:   make([]*UnpartitionedTrackEvent, 0, 1000),
 		unpartDataChan: make(chan *UnpartitionedTrackEvent, 10000),
-		batchSize:      1000,
-		flushTime:      5 * time.Second,
+		batchSize:      200,              // 设置为200以匹配批处理大小
+		flushTime:      10 * time.Second, // 增加到10秒以减少数据库压力
 	}
 
 	// 启动批处理协程
@@ -36,13 +35,15 @@ func NewTrackingService(db *sql.DB) *TrackingService {
 
 // TrackUnpartitionedEvent 记录一个不分区跟踪事件
 func (ts *TrackingService) TrackUnpartitionedEvent(event *UnpartitionedTrackEvent) {
+	log.Printf("收到埋点事件: type=%s, session=%s, path=%s, element=%s, metadata=%s",
+		event.EventType, event.SessionID, event.PagePath, event.ElementPath, event.Metadata)
+
 	// 异步处理
 	select {
 	case ts.unpartDataChan <- event:
-		// 成功添加到队列
+		log.Printf("事件已加入队列: type=%s, session=%s", event.EventType, event.SessionID)
 	default:
-		// 队列已满，记录丢弃数据
-		log.Printf("警告: 不分区埋点队列已满，丢弃事件: %s", event.EventType)
+		log.Printf("警告: 埋点队列已满，丢弃事件: type=%s, session=%s", event.EventType, event.SessionID)
 	}
 }
 
@@ -62,7 +63,7 @@ func (ts *TrackingService) unpartBatchProcessor() {
 				buffer := ts.unpartBuffer
 				ts.unpartBuffer = make([]*UnpartitionedTrackEvent, 0, ts.batchSize)
 				ts.unpartBufferMu.Unlock()
-				ts.flushUnpartBuffer(buffer)
+				go ts.flushUnpartBuffer(buffer) // 使用协程异步刷新，防止阻塞主处理循环
 			} else {
 				ts.unpartBufferMu.Unlock()
 			}
@@ -74,7 +75,7 @@ func (ts *TrackingService) unpartBatchProcessor() {
 				buffer := ts.unpartBuffer
 				ts.unpartBuffer = make([]*UnpartitionedTrackEvent, 0, ts.batchSize)
 				ts.unpartBufferMu.Unlock()
-				ts.flushUnpartBuffer(buffer)
+				go ts.flushUnpartBuffer(buffer) // 使用协程异步刷新
 			} else {
 				ts.unpartBufferMu.Unlock()
 			}
@@ -88,7 +89,7 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		return
 	}
 
-	log.Printf("开始批量写入 %d 条数据", len(events))
+	log.Printf("开始批量写入，事件数量: %d", len(events))
 
 	// 开始事务
 	tx, err := ts.db.Begin()
@@ -96,6 +97,14 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		log.Printf("事务启动失败: %v", err)
 		return
 	}
+
+	// 使用defer来确保事务最终会被处理（提交或回滚）
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Printf("批量写入崩溃恢复: %v", r)
+		}
+	}()
 
 	// 准备批量插入语句
 	stmt, err := tx.Prepare(`
@@ -113,25 +122,13 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 	}
 	defer stmt.Close()
 
+	successCount := 0
+	errorCount := 0
+
 	// 批量插入
-	for i, event := range events {
-		metadata, err := json.Marshal(event.Metadata)
-		if err != nil {
-			log.Printf("元数据序列化失败: %v", err)
-			continue
-		}
-
-		customProps, err := json.Marshal(event.CustomProperties)
-		if err != nil {
-			log.Printf("自定义属性序列化失败: %v", err)
-			continue
-		}
-
-		deviceInfo, err := json.Marshal(event.DeviceInfo)
-		if err != nil {
-			log.Printf("设备信息序列化失败: %v", err)
-			continue
-		}
+	for _, event := range events {
+		log.Printf("尝试插入事件: type=%s, session=%s, metadata=%s",
+			event.EventType, event.SessionID, event.Metadata)
 
 		_, err = stmt.Exec(
 			event.SessionID,
@@ -140,27 +137,31 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 			event.ElementPath,
 			event.PagePath,
 			event.Referrer,
-			metadata,
+			event.Metadata,
 			event.UserAgent,
 			event.IPAddress,
 			event.CreatedAt,
-			customProps,
+			event.CustomProperties,
 			event.Platform,
-			deviceInfo,
+			event.DeviceInfo,
 			event.EventDuration,
 			event.EventSource,
 			event.AppVersion,
 		)
 
 		if err != nil {
-			log.Printf("插入事件(%d/%d)失败: %v [事件类型: %s]", i+1, len(events), err, event.EventType)
-			continue
+			errorCount++
+			log.Printf("插入事件失败: %v\n事件详情: type=%s, session=%s, metadata=%s",
+				err, event.EventType, event.SessionID, event.Metadata)
 		} else {
-			if i == 0 || i == len(events)-1 {
-				log.Printf("成功插入事件(%d/%d): 类型=%s, 用户ID=%s, 会话ID=%s",
-					i+1, len(events), event.EventType, event.UserID, event.SessionID)
-			}
+			successCount++
+			log.Printf("事件插入成功: type=%s, session=%s", event.EventType, event.SessionID)
 		}
+	}
+
+	// 如果有错误但不是全部错误，尝试提交成功的部分
+	if errorCount > 0 && errorCount < len(events) {
+		log.Printf("部分事件插入失败 (%d/%d)，尝试提交成功部分", errorCount, len(events))
 	}
 
 	// 提交事务
@@ -170,5 +171,5 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		return
 	}
 
-	log.Printf("成功写入 %d 条不分区埋点数据", len(events))
+	log.Printf("批量写入完成，成功: %d, 失败: %d", successCount, errorCount)
 }

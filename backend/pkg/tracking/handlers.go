@@ -1,7 +1,7 @@
 package tracking
 
 import (
-	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -50,12 +50,17 @@ func (ts *TrackingService) RegisterHandlers(router *gin.Engine) {
 func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 	var req UnpartitionedTrackEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("请求数据解析失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
 	}
 
+	log.Printf("接收到埋点请求: type=%s, session=%s, path=%s, timestamp=%d",
+		req.EventType, req.SessionID, req.PagePath, req.Timestamp)
+
 	// 验证必填字段
 	if req.EventType == "" {
+		log.Printf("事件类型为空")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "事件类型不能为空"})
 		return
 	}
@@ -84,10 +89,13 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	}
 
 	// 限制单次请求的最大事件数
-	if len(batchReq.Events) > 1000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "单次批量请求不能超过1000个事件"})
+	if len(batchReq.Events) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "单次批量请求不能超过200个事件"})
 		return
 	}
+
+	log.Printf("收到批量请求，事件数量: %d", len(batchReq.Events))
+	validEvents := 0
 
 	// 处理每个埋点事件
 	for _, req := range batchReq.Events {
@@ -98,109 +106,27 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 		// 转换为事件对象并发送
 		event := convertToUnpartitionedTrackEvent(req, c)
 		ts.TrackUnpartitionedEvent(event)
+		validEvents++
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success", "processed": len(batchReq.Events)})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "processed": validEvents})
 }
 
 // 跟踪服务状态
 func (ts *TrackingService) handleTrackingStatus(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "active",
-		"timestamp": time.Now().Unix(),
-	})
-}
+	// 查询数据库中总埋点数量
+	var count int64
+	err := ts.db.QueryRow("SELECT COUNT(*) FROM track_events_unpartitioned").Scan(&count)
 
-// 将请求转换为不分区埋点事件对象
-func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin.Context) *UnpartitionedTrackEvent {
-	// 处理时间戳
-	var eventTime time.Time
-	if req.Timestamp > 0 {
-		// 使用客户端提供的时间戳，但限制不能早于24小时前
-		clientTime := time.UnixMilli(req.Timestamp)
-		minTime := time.Now().Add(-24 * time.Hour)
-		if clientTime.After(minTime) {
-			eventTime = clientTime
-		} else {
-			eventTime = time.Now()
-		}
-	} else {
-		eventTime = time.Now()
-	}
-
-	// 创建事件对象
-	event := &UnpartitionedTrackEvent{
-		SessionID:        req.SessionID,
-		UserID:           req.UserID,
-		EventType:        req.EventType,
-		ElementPath:      req.ElementPath,
-		PagePath:         req.PagePath,
-		Referrer:         req.Referrer,
-		Metadata:         convertMapToString(req.Metadata),
-		UserAgent:        c.Request.UserAgent(),
-		IPAddress:        c.ClientIP(),
-		CreatedAt:        eventTime,
-		CustomProperties: convertMapToString(req.CustomProperties),
-		Platform:         req.Platform,
-		DeviceInfo:       convertMapToString(req.DeviceInfo),
-		EventDuration:    req.EventDuration,
-		EventSource:      req.EventSource,
-		AppVersion:       req.AppVersion,
-	}
-
-	return event
-}
-
-// 将map转换为JSON字符串
-func convertMapToString(data map[string]interface{}) string {
-	if data == nil {
-		return "{}"
-	}
-
-	jsonData, err := json.Marshal(data)
+	status := "active"
 	if err != nil {
-		return "{}"
+		status = "error"
+		log.Printf("获取埋点数量失败: %v", err)
 	}
 
-	return string(jsonData)
-}
-
-// TrackingMiddleware 跟踪中间件
-func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 先执行请求
-		c.Next()
-
-		// 不跟踪API请求，只跟踪页面请求
-		if c.Request.Method != "GET" || c.Writer.Status() >= 400 {
-			return
-		}
-
-		// 跟踪信息
-		path := c.Request.URL.Path
-		// 只记录前端页面访问
-		if !isAPIPath(path) {
-			// 获取会话ID
-			sessionID, _ := c.Cookie("session_id")
-
-			event := &UnpartitionedTrackEvent{
-				SessionID:   sessionID,
-				EventType:   "PAGEVIEW",
-				PagePath:    path,
-				Referrer:    c.GetHeader("Referer"),
-				UserAgent:   c.Request.UserAgent(),
-				IPAddress:   c.ClientIP(),
-				CreatedAt:   time.Now(),
-				Platform:    "WEB",
-				EventSource: "SERVER",
-			}
-			ts.TrackUnpartitionedEvent(event)
-		}
-	}
-}
-
-// 判断是否为API路径
-func isAPIPath(path string) bool {
-	// API路径通常以/api开头
-	return len(path) >= 4 && path[0:4] == "/api"
+	c.JSON(http.StatusOK, gin.H{
+		"status":       status,
+		"timestamp":    time.Now().Unix(),
+		"total_events": count,
+	})
 }

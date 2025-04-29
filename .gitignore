@@ -1,7 +1,3 @@
-# 环境变量文件
-.env
-.env.*
-
 # 编辑器和IDE文件
 .idea/
 .vscode/

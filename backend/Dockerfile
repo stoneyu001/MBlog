@@ -1,8 +1,11 @@
 # 使用官方 Go 轻量镜像作为构建环境
-FROM docker.xuanyuan.me/library/golang:1.24.0-alpine as builder
+FROM docker.xuanyuan.me/library/golang:1.24.0-alpine AS builder
 
 # 设置工作目录
 WORKDIR /build
+
+# 设置Go代理为七牛云
+ENV GOPROXY=https://goproxy.cn,direct
 
 # 复制源代码
 COPY . .
