@@ -2,6 +2,7 @@ package tracking
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -53,13 +54,14 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 
 // 将map转换为JSON字符串
 func convertMapToString(data map[string]interface{}) string {
-	if data == nil {
-		return "{}"
+	if data == nil || len(data) == 0 {
+		return `{}`
 	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return "{}"
+		log.Printf("JSON序列化失败: %v", err)
+		return `{}`
 	}
 
 	return string(jsonData)
@@ -67,40 +69,19 @@ func convertMapToString(data map[string]interface{}) string {
 
 // TrackingMiddleware 跟踪中间件
 func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
+	log.Println("埋点服务中间件已初始化")
 	return func(c *gin.Context) {
-		// 先执行请求
 		c.Next()
 
-		// 不跟踪API请求，只跟踪页面请求
-		if c.Request.Method != "GET" || c.Writer.Status() >= 400 {
-			return
+		// 删除条件，记录所有请求
+		event := &UnpartitionedTrackEvent{
+			EventType:        "REQUEST",
+			PagePath:         c.Request.URL.Path,
+			CreatedAt:        time.Now(),
+			Metadata:         `{"source": "middleware"}`,
+			CustomProperties: `{"auto_tracked": true}`,
+			DeviceInfo:       `{"type": "server"}`,
 		}
-
-		// 跟踪信息
-		path := c.Request.URL.Path
-		// 只记录前端页面访问
-		if !isAPIPath(path) {
-			// 获取会话ID
-			sessionID, _ := c.Cookie("session_id")
-
-			event := &UnpartitionedTrackEvent{
-				SessionID:   sessionID,
-				EventType:   "PAGEVIEW",
-				PagePath:    path,
-				Referrer:    c.GetHeader("Referer"),
-				UserAgent:   c.Request.UserAgent(),
-				IPAddress:   c.ClientIP(),
-				CreatedAt:   time.Now(),
-				Platform:    "WEB",
-				EventSource: "SERVER",
-			}
-			ts.TrackUnpartitionedEvent(event)
-		}
+		ts.TrackUnpartitionedEvent(event)
 	}
-}
-
-// 判断是否为API路径
-func isAPIPath(path string) bool {
-	// API路径通常以/api开头
-	return len(path) >= 4 && path[0:4] == "/api"
 }

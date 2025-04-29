@@ -98,11 +98,12 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		return
 	}
 
-	// 使用defer来确保事务最终会被处理（提交或回滚）
+	// 确保事务最终会被处理
 	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Printf("批量写入崩溃恢复: %v", r)
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("回滚事务失败: %v", rbErr)
+			}
 		}
 	}()
 
@@ -112,23 +113,28 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		(session_id, user_id, event_type, element_path, page_path, referrer, 
 		metadata, user_agent, ip_address, created_at, custom_properties, 
 		platform, device_info, event_duration, event_source, app_version)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11::jsonb, 
+		$12, $13::jsonb, $14, $15, $16)
 	`)
 
 	if err != nil {
-		tx.Rollback()
 		log.Printf("准备语句失败: %v", err)
 		return
 	}
 	defer stmt.Close()
 
-	successCount := 0
-	errorCount := 0
-
 	// 批量插入
 	for _, event := range events {
-		log.Printf("尝试插入事件: type=%s, session=%s, metadata=%s",
-			event.EventType, event.SessionID, event.Metadata)
+		// 确保JSON字段不为空
+		if event.Metadata == "" {
+			event.Metadata = "{}"
+		}
+		if event.CustomProperties == "" {
+			event.CustomProperties = "{}"
+		}
+		if event.DeviceInfo == "" {
+			event.DeviceInfo = "{}"
+		}
 
 		_, err = stmt.Exec(
 			event.SessionID,
@@ -150,26 +156,17 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		)
 
 		if err != nil {
-			errorCount++
 			log.Printf("插入事件失败: %v\n事件详情: type=%s, session=%s, metadata=%s",
 				err, event.EventType, event.SessionID, event.Metadata)
-		} else {
-			successCount++
-			log.Printf("事件插入成功: type=%s, session=%s", event.EventType, event.SessionID)
+			return
 		}
 	}
 
-	// 如果有错误但不是全部错误，尝试提交成功的部分
-	if errorCount > 0 && errorCount < len(events) {
-		log.Printf("部分事件插入失败 (%d/%d)，尝试提交成功部分", errorCount, len(events))
-	}
-
 	// 提交事务
-	if err := tx.Commit(); err != nil {
-		tx.Rollback()
+	if err = tx.Commit(); err != nil {
 		log.Printf("提交事务失败: %v", err)
 		return
 	}
 
-	log.Printf("批量写入完成，成功: %d, 失败: %d", successCount, errorCount)
+	log.Printf("批量写入完成，成功写入 %d 条记录", len(events))
 }

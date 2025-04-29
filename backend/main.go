@@ -40,7 +40,7 @@ func main() {
 	dbHost := getEnv("DB_HOST", "db")
 	dbPort := getEnv("DB_PORT", "5432")
 	dbUser := getEnv("POSTGRES_USER", "postgres")
-	dbPass := getEnv("POSTGRES_PASSWORD", "")
+	dbPass := getEnv("POSTGRES_PASSWORD", "4341289")
 	dbName := getEnv("POSTGRES_DB", "blog_db")
 
 	// 构建连接字符串
