@@ -1,6 +1,7 @@
 package tracking
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -76,32 +77,77 @@ func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 
 // 处理批量不分区埋点事件
 func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
-	var batchReq BatchUnpartitionedTrackRequest
-	if err := c.ShouldBindJSON(&batchReq); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的批量请求数据"})
+	// 解析原始JSON
+	var rawData map[string]interface{}
+	body, _ := c.GetRawData()
+	if err := json.Unmarshal(body, &rawData); err != nil {
+		log.Printf("解析JSON失败: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
 	}
 
-	// 验证请求中的事件数量
-	if len(batchReq.Events) == 0 {
+	// 从events字段获取事件数组
+	eventsRaw, ok := rawData["events"]
+	if !ok || eventsRaw == nil {
+		log.Printf("请求中没有events字段")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求中缺少events字段"})
+		return
+	}
+
+	// 将事件数组转换为[]map[string]interface{}
+	eventsArray, ok := eventsRaw.([]interface{})
+	if !ok {
+		log.Printf("events字段不是数组")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "events字段不是数组"})
+		return
+	}
+
+	if len(eventsArray) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "批量请求不能为空"})
 		return
 	}
 
-	// 限制单次请求的最大事件数
-	if len(batchReq.Events) > 200 {
+	if len(eventsArray) > 200 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "单次批量请求不能超过200个事件"})
 		return
 	}
 
-	log.Printf("收到批量请求，事件数量: %d", len(batchReq.Events))
+	log.Printf("收到批量请求，事件数量: %d", len(eventsArray))
 	validEvents := 0
 
-	// 处理每个埋点事件
-	for _, req := range batchReq.Events {
-		if req.EventType == "" {
-			continue // 跳过无效事件
+	// 处理每个事件
+	for _, eventRaw := range eventsArray {
+		eventMap, ok := eventRaw.(map[string]interface{})
+		if !ok {
+			log.Printf("跳过非对象事件")
+			continue
 		}
+
+		// 从map中提取驼峰命名的字段
+		eventType, _ := eventMap["eventType"].(string)
+		if eventType == "" {
+			log.Printf("跳过无效事件: 事件类型为空")
+			continue
+		}
+
+		// 构建请求结构体
+		req := UnpartitionedTrackEventRequest{
+			EventType:   eventType,
+			SessionID:   getString(eventMap, "sessionId"),
+			UserID:      getString(eventMap, "userId"),
+			ElementPath: getString(eventMap, "elementPath"),
+			PagePath:    getString(eventMap, "pagePath"),
+			Referrer:    getString(eventMap, "referrer"),
+			Timestamp:   getInt64(eventMap, "timestamp"),
+		}
+
+		// 处理metadata
+		if metadata, ok := eventMap["metadata"].(map[string]interface{}); ok {
+			req.Metadata = metadata
+		}
+
+		// 打印请求内容以调试
+		log.Printf("处理事件: %+v", req)
 
 		// 转换为事件对象并发送
 		event := convertToUnpartitionedTrackEvent(req, c)
@@ -109,7 +155,30 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 		validEvents++
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success", "processed": validEvents})
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"processed": validEvents,
+	})
+}
+
+// 辅助函数
+func getString(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+func getInt64(m map[string]interface{}, key string) int64 {
+	switch v := m[key].(type) {
+	case float64:
+		return int64(v)
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	}
+	return 0
 }
 
 // 跟踪服务状态

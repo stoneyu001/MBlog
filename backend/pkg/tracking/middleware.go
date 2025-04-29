@@ -69,19 +69,40 @@ func convertMapToString(data map[string]interface{}) string {
 
 // TrackingMiddleware 跟踪中间件
 func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
-	log.Println("埋点服务中间件已初始化")
 	return func(c *gin.Context) {
-		c.Next()
+		// 只对/api/tracking/batch端点进行特殊处理
+		if c.Request.URL.Path == "/api/tracking/batch" {
+			c.Next()
+			return
+		}
 
-		// 删除条件，记录所有请求
+		// 对其他请求自动记录REQUEST事件
 		event := &UnpartitionedTrackEvent{
 			EventType:        "REQUEST",
 			PagePath:         c.Request.URL.Path,
+			UserAgent:        c.Request.UserAgent(),
+			IPAddress:        c.ClientIP(),
 			CreatedAt:        time.Now(),
-			Metadata:         `{"source": "middleware"}`,
 			CustomProperties: `{"auto_tracked": true}`,
-			DeviceInfo:       `{"type": "server"}`,
 		}
+
+		ts.TrackUnpartitionedEvent(event)
+		c.Next()
+	}
+}
+
+// BatchTrackingHandler 处理批量埋点请求
+func (ts *TrackingService) BatchTrackingHandler(c *gin.Context) {
+	var events []UnpartitionedTrackEventRequest
+	if err := c.ShouldBindJSON(&events); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	for _, req := range events {
+		event := convertToUnpartitionedTrackEvent(req, c)
 		ts.TrackUnpartitionedEvent(event)
 	}
+
+	c.JSON(200, gin.H{"status": "success"})
 }

@@ -7,8 +7,8 @@ import createTrackingPlugin from '../plugins/tracking'
 // 创建跟踪插件
 const trackingPlugin = createTrackingPlugin({
   endpoint: 'http://localhost:3000/api/tracking/batch',
-  batchSize: 10,
-  batchInterval: 5000,
+  batchSize: 5,         // 减小批量大小，更频繁发送
+  batchInterval: 2000,  // 减少等待时间到2秒
   debug: true,
   sampling: 1, // 100%采样率
   excludePaths: [
@@ -18,12 +18,14 @@ const trackingPlugin = createTrackingPlugin({
     'a', 
     'button',
     '.track-click', // 特别标记的元素
-    '[data-track]'  // 带有data-track属性的元素
+    '[data-track]',  // 带有data-track属性的元素
+    'input[type="submit"]', // 添加表单提交按钮
+    'form'  // 添加表单元素
   ],
   enableAutoTrack: {
     pageview: true,
     click: true,
-    exposure: false
+    exposure: true  // 启用曝光追踪
   }
 });
 
