@@ -193,9 +193,14 @@ func (ts *TrackingService) handleTrackingStatus(c *gin.Context) {
 		log.Printf("获取埋点数量失败: %v", err)
 	}
 
+	// 使用中国时区的当前时间
+	currentTime := time.Now().In(chinaLocation)
+
 	c.JSON(http.StatusOK, gin.H{
-		"status":       status,
-		"timestamp":    time.Now().Unix(),
-		"total_events": count,
+		"status":         status,
+		"timestamp":      currentTime.Unix(),
+		"total_events":   count,
+		"timezone":       "Asia/Shanghai",
+		"formatted_time": currentTime.Format("2006-01-02 15:04:05"),
 	})
 }

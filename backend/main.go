@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"blog/pkg/filemanager"
 	"blog/pkg/tracking" // 导入跟踪包
@@ -36,6 +37,17 @@ type FileRequest struct {
 }
 
 func main() {
+	// 设置全局默认时区为中国时区
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Printf("加载中国时区失败: %v, 尝试使用UTC+8", err)
+		loc = time.FixedZone("CST", 8*60*60)
+	}
+	time.Local = loc
+
+	log.Printf("系统时区已设置为: %s, 当前时间: %s",
+		time.Local.String(), time.Now().In(time.Local).Format("2006-01-02 15:04:05"))
+
 	// 初始化数据库连接（使用端口5432 - 容器内部端口）
 	dbHost := getEnv("DB_HOST", "db")
 	dbPort := getEnv("DB_PORT", "5432")
@@ -49,7 +61,9 @@ func main() {
 	if dbPass != "" {
 		dbURL += ":" + dbPass
 	}
-	dbURL += "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
+	dbURL += "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable&timezone=Asia/Shanghai"
+
+	log.Printf("数据库连接: %s", dbURL)
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {

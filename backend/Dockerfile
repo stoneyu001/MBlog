@@ -16,6 +16,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o blog
 # 使用轻量级镜像运行
 FROM docker.xuanyuan.me/library/alpine:latest
 
+# 设置时区为中国时区(修改方式确保正确链接)
+ENV TZ=Asia/Shanghai
+RUN apk add --no-cache tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
 WORKDIR /app
 
 # 从构建阶段复制二进制文件
