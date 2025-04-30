@@ -74,11 +74,6 @@ func main() {
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)
 
-	// 初始化埋点数据库表
-	if err := tracking.InitDB(db); err != nil {
-		log.Printf("警告: 初始化埋点数据库表失败: %v", err)
-	}
-
 	// 初始化文件管理器
 	if err := filemanager.Init(); err != nil {
 		log.Fatal("初始化文件管理器失败:", err)

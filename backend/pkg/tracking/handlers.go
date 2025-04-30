@@ -23,8 +23,6 @@ type UnpartitionedTrackEventRequest struct {
 	Platform         string                 `json:"platform"`          // 平台：WEB, IOS, ANDROID等
 	DeviceInfo       map[string]interface{} `json:"device_info"`       // 设备信息
 	EventDuration    int                    `json:"event_duration"`    // 事件持续时间(毫秒)
-	EventSource      string                 `json:"event_source"`      // 事件来源
-	AppVersion       string                 `json:"app_version"`       // 应用版本号
 }
 
 // 批量不分区埋点请求
@@ -56,14 +54,13 @@ func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 		return
 	}
 
-	log.Printf("接收到埋点请求: type=%s, session=%s, path=%s, timestamp=%d",
-		req.EventType, req.SessionID, req.PagePath, req.Timestamp)
+	log.Printf("接收到埋点请求: type=%s, session=%s, user_id=%s, path=%s, timestamp=%d",
+		req.EventType, req.SessionID, req.UserID, req.PagePath, req.Timestamp)
 
-	// 验证必填字段
+	// 验证并设置缺失字段的默认值而不是拒绝请求
 	if req.EventType == "" {
-		log.Printf("事件类型为空")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "事件类型不能为空"})
-		return
+		req.EventType = "UNKNOWN"
+		log.Printf("警告: 事件类型为空，使用默认值: %s", req.EventType)
 	}
 
 	// 创建跟踪事件
@@ -78,79 +75,111 @@ func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 // 处理批量不分区埋点事件
 func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	// 解析原始JSON
-	var rawData map[string]interface{}
+	var batchRequest struct {
+		Events []map[string]interface{} `json:"events"`
+	}
+
 	body, _ := c.GetRawData()
-	if err := json.Unmarshal(body, &rawData); err != nil {
+	log.Printf("接收到原始批量请求数据: %s", string(body))
+
+	if err := json.Unmarshal(body, &batchRequest); err != nil {
 		log.Printf("解析JSON失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
 	}
 
-	// 从events字段获取事件数组
-	eventsRaw, ok := rawData["events"]
-	if !ok || eventsRaw == nil {
-		log.Printf("请求中没有events字段")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求中缺少events字段"})
-		return
-	}
-
-	// 将事件数组转换为[]map[string]interface{}
-	eventsArray, ok := eventsRaw.([]interface{})
-	if !ok {
-		log.Printf("events字段不是数组")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "events字段不是数组"})
-		return
-	}
+	eventsArray := batchRequest.Events
+	log.Printf("解析后的events数组: %+v", eventsArray)
 
 	if len(eventsArray) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "批量请求不能为空"})
+		log.Printf("警告: 批量请求为空")
+		c.JSON(http.StatusOK, gin.H{"status": "success", "processed": 0})
 		return
 	}
 
 	if len(eventsArray) > 200 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "单次批量请求不能超过200个事件"})
-		return
+		log.Printf("警告: 批量请求超过200个事件，将只处理前200个")
+		eventsArray = eventsArray[:200]
 	}
 
 	log.Printf("收到批量请求，事件数量: %d", len(eventsArray))
 	validEvents := 0
+	invalidEvents := 0
 
 	// 处理每个事件
-	for _, eventRaw := range eventsArray {
-		eventMap, ok := eventRaw.(map[string]interface{})
-		if !ok {
-			log.Printf("跳过非对象事件")
-			continue
+	for i, eventMap := range eventsArray {
+		// 详细记录每个事件的原始数据，特别是user_id
+		log.Printf("事件[%d]原始数据: %+v", i, eventMap)
+
+		// 特别检查user_id字段
+		if userID, exists := eventMap["user_id"]; exists {
+			log.Printf("事件[%d]包含user_id: %v (类型: %T)", i, userID, userID)
+		} else if userID, exists := eventMap["userId"]; exists {
+			log.Printf("事件[%d]包含userId(驼峰): %v (类型: %T)", i, userID, userID)
+		} else {
+			log.Printf("警告: 事件[%d]不包含user_id或userId字段", i)
 		}
 
-		// 从map中提取驼峰命名的字段
-		eventType, _ := eventMap["eventType"].(string)
+		// 从map中提取字段，同时尝试下划线命名和驼峰命名
+		eventType := getStringWithFallback(eventMap, "event_type", "eventType")
 		if eventType == "" {
-			log.Printf("跳过无效事件: 事件类型为空")
-			continue
+			eventType = "UNKNOWN"
+			log.Printf("警告: 事件类型为空，使用默认值: %s", eventType)
 		}
 
 		// 构建请求结构体
 		req := UnpartitionedTrackEventRequest{
 			EventType:   eventType,
-			SessionID:   getString(eventMap, "sessionId"),
-			UserID:      getString(eventMap, "userId"),
-			ElementPath: getString(eventMap, "elementPath"),
-			PagePath:    getString(eventMap, "pagePath"),
-			Referrer:    getString(eventMap, "referrer"),
-			Timestamp:   getInt64(eventMap, "timestamp"),
+			SessionID:   getStringWithFallback(eventMap, "session_id", "sessionId"),
+			UserID:      getStringWithFallback(eventMap, "user_id", "userId"),
+			ElementPath: getStringWithFallback(eventMap, "element_path", "elementPath"),
+			PagePath:    getStringWithFallback(eventMap, "page_path", "pagePath"),
+			Referrer:    getStringWithFallback(eventMap, "referrer", "referrer"),
+			Timestamp:   getInt64WithFallback(eventMap, "timestamp", "timestamp"),
 		}
 
+		// 检查转换后的user_id
+		log.Printf("事件[%d]转换后的UserID: %s", i, req.UserID)
+
 		// 处理metadata
-		if metadata, ok := eventMap["metadata"].(map[string]interface{}); ok {
+		metadata, ok := eventMap["metadata"].(map[string]interface{})
+		if !ok {
+			// 尝试驼峰命名
+			metadata, _ = eventMap["metaData"].(map[string]interface{})
+		}
+		if metadata != nil {
 			req.Metadata = metadata
 		}
+
+		// 处理其他复杂字段
+		customProps, ok := eventMap["custom_properties"].(map[string]interface{})
+		if !ok {
+			// 尝试驼峰命名
+			customProps, _ = eventMap["customProperties"].(map[string]interface{})
+		}
+		if customProps != nil {
+			req.CustomProperties = customProps
+		}
+
+		deviceInfo, ok := eventMap["device_info"].(map[string]interface{})
+		if !ok {
+			// 尝试驼峰命名
+			deviceInfo, _ = eventMap["deviceInfo"].(map[string]interface{})
+		}
+		if deviceInfo != nil {
+			req.DeviceInfo = deviceInfo
+		}
+
+		// 处理平台和事件持续时间
+		req.Platform = getStringWithFallback(eventMap, "platform", "platform")
+		req.EventDuration = getIntWithFallback(eventMap, "event_duration", "eventDuration")
 
 		// 打印请求内容以调试
 		log.Printf("处理事件: %+v", req)
 
 		// 转换为事件对象并发送
 		event := convertToUnpartitionedTrackEvent(req, c)
+		log.Printf("转换后的事件对象: UserID=%s, SessionID=%s", event.UserID, event.SessionID)
 		ts.TrackUnpartitionedEvent(event)
 		validEvents++
 	}
@@ -158,12 +187,24 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "success",
 		"processed": validEvents,
+		"invalid":   invalidEvents,
 	})
 }
 
 // 辅助函数
 func getString(m map[string]interface{}, key string) string {
 	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+// 同时尝试下划线和驼峰两种命名获取字符串值
+func getStringWithFallback(m map[string]interface{}, snakeKey, camelKey string) string {
+	if val, ok := m[snakeKey].(string); ok && val != "" {
+		return val
+	}
+	if val, ok := m[camelKey].(string); ok {
 		return val
 	}
 	return ""
@@ -181,11 +222,36 @@ func getInt64(m map[string]interface{}, key string) int64 {
 	return 0
 }
 
+// 同时尝试下划线和驼峰两种命名获取int64值
+func getInt64WithFallback(m map[string]interface{}, snakeKey, camelKey string) int64 {
+	if val := getInt64(m, snakeKey); val != 0 {
+		return val
+	}
+	return getInt64(m, camelKey)
+}
+
+// 同时尝试下划线和驼峰两种命名获取int值
+func getIntWithFallback(m map[string]interface{}, snakeKey, camelKey string) int {
+	if val, ok := m[snakeKey].(float64); ok {
+		return int(val)
+	}
+	if val, ok := m[camelKey].(float64); ok {
+		return int(val)
+	}
+	if val, ok := m[snakeKey].(int); ok {
+		return val
+	}
+	if val, ok := m[camelKey].(int); ok {
+		return val
+	}
+	return 0
+}
+
 // 跟踪服务状态
 func (ts *TrackingService) handleTrackingStatus(c *gin.Context) {
 	// 查询数据库中总埋点数量
 	var count int64
-	err := ts.db.QueryRow("SELECT COUNT(*) FROM track_events_unpartitioned").Scan(&count)
+	err := ts.db.QueryRow("SELECT COUNT(*) FROM track_event").Scan(&count)
 
 	status := "active"
 	if err != nil {

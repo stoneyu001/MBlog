@@ -94,7 +94,11 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 	// 开始事务
 	tx, err := ts.db.Begin()
 	if err != nil {
-		log.Printf("事务启动失败: %v", err)
+		log.Printf("事务启动失败: %v，尝试继续处理", err)
+		// 事务失败也尝试单条插入
+		for _, event := range events {
+			ts.insertSingleEvent(event)
+		}
 		return
 	}
 
@@ -109,19 +113,26 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 
 	// 准备批量插入语句
 	stmt, err := tx.Prepare(`
-		INSERT INTO track_events_unpartitioned 
+		INSERT INTO track_event 
 		(session_id, user_id, event_type, element_path, page_path, referrer, 
 		metadata, user_agent, ip_address, created_at, custom_properties, 
-		platform, device_info, event_duration, event_source, app_version)
+		platform, device_info, event_duration)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11::jsonb, 
-		$12, $13::jsonb, $14, $15, $16)
+		$12, $13::jsonb, $14)
 	`)
 
 	if err != nil {
-		log.Printf("准备语句失败: %v", err)
+		log.Printf("准备语句失败: %v，尝试单条插入", err)
+		// 准备语句失败也尝试单条插入
+		for _, event := range events {
+			ts.insertSingleEvent(event)
+		}
 		return
 	}
 	defer stmt.Close()
+
+	successCount := 0
+	failCount := 0
 
 	// 批量插入
 	for _, event := range events {
@@ -136,7 +147,10 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 			event.DeviceInfo = "{}"
 		}
 
-		_, err = stmt.Exec(
+		// 记录设备指纹（user_id）
+		log.Printf("使用设备指纹作为user_id: %s", event.UserID)
+
+		_, execErr := stmt.Exec(
 			event.SessionID,
 			event.UserID,
 			event.EventType,
@@ -151,22 +165,68 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 			event.Platform,
 			event.DeviceInfo,
 			event.EventDuration,
-			event.EventSource,
-			event.AppVersion,
 		)
 
-		if err != nil {
+		if execErr != nil {
 			log.Printf("插入事件失败: %v\n事件详情: type=%s, session=%s, metadata=%s",
-				err, event.EventType, event.SessionID, event.Metadata)
-			return
+				execErr, event.EventType, event.SessionID, event.Metadata)
+			failCount++
+		} else {
+			successCount++
 		}
 	}
 
 	// 提交事务
 	if err = tx.Commit(); err != nil {
-		log.Printf("提交事务失败: %v", err)
+		log.Printf("提交事务失败: %v, 但部分数据可能已经写入", err)
 		return
 	}
 
-	log.Printf("批量写入完成，成功写入 %d 条记录", len(events))
+	log.Printf("批量写入完成，成功: %d, 失败: %d", successCount, failCount)
+}
+
+// insertSingleEvent 插入单条事件，用于批处理失败时的备选方案
+func (ts *TrackingService) insertSingleEvent(event *UnpartitionedTrackEvent) {
+	// 确保JSON字段不为空
+	if event.Metadata == "" {
+		event.Metadata = "{}"
+	}
+	if event.CustomProperties == "" {
+		event.CustomProperties = "{}"
+	}
+	if event.DeviceInfo == "" {
+		event.DeviceInfo = "{}"
+	}
+
+	// 直接执行插入
+	_, err := ts.db.Exec(`
+		INSERT INTO track_event 
+		(session_id, user_id, event_type, element_path, page_path, referrer, 
+		metadata, user_agent, ip_address, created_at, custom_properties, 
+		platform, device_info, event_duration)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11::jsonb, 
+		$12, $13::jsonb, $14)
+	`,
+		event.SessionID,
+		event.UserID,
+		event.EventType,
+		event.ElementPath,
+		event.PagePath,
+		event.Referrer,
+		event.Metadata,
+		event.UserAgent,
+		event.IPAddress,
+		event.CreatedAt,
+		event.CustomProperties,
+		event.Platform,
+		event.DeviceInfo,
+		event.EventDuration,
+	)
+
+	if err != nil {
+		log.Printf("单条插入失败: %v\n事件详情: type=%s, session=%s",
+			err, event.EventType, event.SessionID)
+	} else {
+		log.Printf("单条插入成功: type=%s, session=%s", event.EventType, event.SessionID)
+	}
 }

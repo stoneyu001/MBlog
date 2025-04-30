@@ -17,14 +17,22 @@ export enum TrackEventType {
 
 // 埋点事件接口
 export interface TrackEvent {
-  sessionId?: string;
-  userId?: string;
-  eventType: TrackEventType | string;
-  elementPath?: string;
-  pagePath: string;
+  session_id?: string;
+  user_id?: string;
+  event_type: TrackEventType | string;
+  element_path?: string;
+  page_path: string;
   referrer?: string;
   metadata?: Record<string, any>;
   timestamp: number;
+}
+
+// 设备指纹和会话存储接口
+interface SessionStorage {
+  id: string;               // 会话ID
+  fingerprint: string;      // 设备指纹
+  created: number;          // 创建时间戳
+  last_activity: number;    // 最后活动时间戳
 }
 
 // 埋点配置选项
@@ -47,46 +55,111 @@ export interface TrackingOptions {
 function generateFingerprint(): string {
   if (!isBrowser) return 'server-side-rendering'
   
+  try {
+    console.log('[Tracker Debug] 开始生成设备指纹');
+    
+    // 收集更多设备信息提高唯一性
   const components = [
-    navigator.userAgent,
-    screen.width + 'x' + screen.height,
-    screen.colorDepth,
+      navigator.userAgent || 'unknown',
+      `${screen.width || 0}x${screen.height || 0}`,
+      screen.colorDepth || 0,
     new Date().getTimezoneOffset(),
-    navigator.language,
-    navigator.hardwareConcurrency || '',
-    navigator.platform || '',
-  ];
-  
-  return hashCode(components.join('|')).toString(16);
+      navigator.language || 'unknown',
+      navigator.hardwareConcurrency || 0,
+      navigator.platform || 'unknown',
+      navigator.cookieEnabled ? '1' : '0',
+      navigator.doNotTrack || 'unknown',
+      // 添加更多唯一标识
+      navigator.vendor || 'unknown',
+      navigator.productSub || 'unknown',
+      navigator.maxTouchPoints || 0,
+      // 添加内存信息（如果可用）
+      // @ts-ignore
+      navigator.deviceMemory || 'unknown',
+      // 添加连接信息（如果可用）
+      // @ts-ignore
+      navigator.connection?.type || 'unknown',
+      // 添加随机种子
+      Math.random().toString(36).substring(2) + Date.now().toString(36)
+    ];
+    
+    console.log('[Tracker Debug] 收集的设备信息:', components);
+    
+    // 生成指纹
+    const rawFingerprint = components.join('|');
+    console.log('[Tracker Debug] 原始指纹字符串:', rawFingerprint);
+    
+    const hash = hashCode(rawFingerprint);
+    console.log('[Tracker Debug] 哈希值:', hash);
+    
+    // 确保生成的指纹是正数且为16进制
+    const fingerprint = Math.abs(hash).toString(16);
+    console.log('[Tracker Debug] 最终设备指纹:', fingerprint);
+    
+    // 验证指纹有效性
+    if (!fingerprint || fingerprint.length < 8) {
+      throw new Error('生成的指纹无效');
+    }
+    
+    return fingerprint;
+  } catch (error) {
+    console.error('[Tracker Error] 生成设备指纹失败:', error);
+    
+    // 使用备用方案生成指纹
+    const timestamp = Date.now();
+    const random = Math.random();
+    const fallbackComponents = [
+      timestamp.toString(36),
+      random.toString(36).substring(2),
+      navigator.userAgent || 'unknown'
+    ];
+    
+    const fallbackFingerprint = hashCode(fallbackComponents.join('|')).toString(16);
+    console.log('[Tracker Debug] 使用备用指纹:', fallbackFingerprint);
+    
+    return fallbackFingerprint;
+  }
 }
 
-// 简单的哈希函数
+// 改进的哈希函数
 function hashCode(str: string): number {
   let hash = 0;
-  if (str.length === 0) return hash;
+  if (!str || str.length === 0) return 1;
   
+  // 使用FNV-1a哈希算法
+  const FNV_PRIME = 16777619;
+  const FNV_OFFSET_BASIS = 2166136261;
+  
+  hash = FNV_OFFSET_BASIS;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash ^= str.charCodeAt(i);
+    hash *= FNV_PRIME;
   }
   
-  return Math.abs(hash);
+  // 确保返回正数
+  return Math.abs(hash || 1);
+}
+
+// 生成随机会话ID
+function generate_session_id(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 export class Tracker {
   private options: TrackingOptions;
   private events: TrackEvent[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private sessionId: string;
-  private userId: string | null = null;
+  private session_id: string;
+  private device_fingerprint: string;
+  private readonly SESSION_STORAGE_KEY = 'track_session_data';
+  private readonly FINGERPRINT_STORAGE_KEY = 'track_device_fingerprint';
   
   constructor(options: TrackingOptions) {
     // 默认配置
     this.options = {
       batchSize: 10,
       batchInterval: 5000, // 5秒
-      debug: false,
+      debug: true, // 默认开启调试
       sampling: 1,
       enableAutoTrack: {
         pageview: true,
@@ -96,49 +169,149 @@ export class Tracker {
       ...options
     };
     
-    // 生成会话ID
-    this.sessionId = this.getOrCreateSessionId();
+    // 添加调试日志
+    this.log('Tracker初始化 - 开始');
+    
+    // 获取或生成设备指纹
+    this.device_fingerprint = this.getOrCreateFingerprint();
+    this.log('设备指纹:', this.device_fingerprint);
+    
+    // 始终生成新的会话ID
+    this.session_id = this.createNewSession();
+    this.log('新会话ID:', this.session_id);
     
     // 发送缓冲区内事件
     this.startBatchTimer();
+    
+    this.log('Tracker初始化 - 完成');
   }
   
-  // 获取或创建会话ID
-  private getOrCreateSessionId(): string {
-    // 如果不在浏览器环境，返回固定ID
+  // 获取或创建设备指纹
+  private getOrCreateFingerprint(): string {
     if (!isBrowser) return 'server-side-rendering';
     
-    const storageKey = 'track_session_id';
-    let sessionId: string | null = null;
-    
     try {
-      sessionId = localStorage.getItem(storageKey);
-    } catch (e) {
-      // 处理localStorage不可用的情况
-      return 'storage-unavailable';
+      console.log('[Tracker Debug] 开始获取设备指纹');
+      
+      // 尝试从localStorage获取存储的设备指纹
+      const storedFingerprint = localStorage.getItem(this.FINGERPRINT_STORAGE_KEY);
+      console.log('[Tracker Debug] 存储的设备指纹:', storedFingerprint);
+      
+      if (storedFingerprint && storedFingerprint.length >= 8) {
+        console.log('[Tracker Debug] 使用已存储的设备指纹');
+        return storedFingerprint;
     }
     
-    if (!sessionId) {
-      sessionId = generateFingerprint();
-      try {
-        localStorage.setItem(storageKey, sessionId);
-      } catch (e) {
-        // 忽略写入错误
+    // 生成新的设备指纹
+      console.log('[Tracker Debug] 生成新的设备指纹');
+    const fingerprint = generateFingerprint();
+    
+      // 验证生成的指纹
+      if (!fingerprint || fingerprint.length < 8) {
+        throw new Error('生成的设备指纹无效');
       }
+      
+      // 验证localStorage是否可用
+      const testKey = '_test_storage_';
+      try {
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+      } catch (e) {
+        console.error('[Tracker Error] localStorage不可用:', e);
+        return fingerprint; // 直接返回生成的指纹
+      }
+      
+      // 将指纹存储到localStorage
+      try {
+      localStorage.setItem(this.FINGERPRINT_STORAGE_KEY, fingerprint);
+        console.log('[Tracker Debug] 设备指纹已保存到localStorage');
+    } catch (e) {
+        console.error('[Tracker Error] 保存设备指纹失败:', e);
     }
     
-    return sessionId;
+    return fingerprint;
+    } catch (e) {
+      console.error('[Tracker Error] 获取/创建设备指纹时出错:', e);
+      // 生成临时指纹
+      const tempFingerprint = Date.now().toString(36) + Math.random().toString(36).substring(2);
+      return tempFingerprint;
+    }
   }
   
-  // 设置用户ID
-  public setUserId(userId: string): void {
-    this.userId = userId;
+  // 创建新会话
+  private createNewSession(): string {
+    if (!isBrowser) return 'server-side-rendering';
+    
+    // 检查是否存在现有会话（仅在同一浏览器标签页的情况下）
+    const existing_session_id = this.checkExistingSession();
+    if (existing_session_id) {
+      this.log('使用现有会话:', existing_session_id);
+      return existing_session_id;
+    }
+    
+    // 生成新的会话ID
+    const session_id = generate_session_id();
+    this.log('生成新会话ID:', session_id);
+    
+    try {
+      // 将会话ID保存到sessionStorage（浏览器标签页关闭后自动清除）
+      sessionStorage.setItem(this.SESSION_STORAGE_KEY, session_id);
+      
+      // 保存会话创建时间，用于同一会话内的判断
+      const session_data = {
+        id: session_id,
+        fingerprint: this.device_fingerprint,
+        created: Date.now(),
+        last_activity: Date.now()
+      };
+      
+      // 使用sessionStorage而非localStorage，确保标签页关闭后会重新创建
+      sessionStorage.setItem(this.SESSION_STORAGE_KEY + '_data', JSON.stringify(session_data));
+      
+      this.log('创建新会话', session_data);
+    } catch (e) {
+      this.log('保存会话数据失败', e);
+    }
+    
+    return session_id;
+  }
+  
+  // 检查并可能恢复现有会话（仅在同一浏览器会话内）
+  private checkExistingSession(): string | null {
+    if (!isBrowser) return null;
+    
+    try {
+      // 从sessionStorage获取当前会话ID
+      return sessionStorage.getItem(this.SESSION_STORAGE_KEY);
+    } catch (e) {
+      this.log('检查现有会话失败', e);
+      return null;
+    }
+  }
+  
+  // 更新会话活动时间
+  private updateSessionActivity(): void {
+    if (!isBrowser) return;
+    
+    try {
+      const session_data_str = sessionStorage.getItem(this.SESSION_STORAGE_KEY + '_data');
+      if (session_data_str) {
+        const session_data: SessionStorage = JSON.parse(session_data_str);
+        session_data.last_activity = Date.now();
+        sessionStorage.setItem(this.SESSION_STORAGE_KEY + '_data', JSON.stringify(session_data));
+      }
+    } catch (e) {
+      this.log('更新会话活动时间失败', e);
+    }
   }
   
   // 追踪事件
-  public track(event: Omit<TrackEvent, 'sessionId' | 'userId' | 'timestamp'>): void {
+  public track(event: Omit<TrackEvent, 'session_id' | 'user_id' | 'timestamp'>): void {
     // 如果不在浏览器环境，不执行埋点
     if (!isBrowser) return;
+    
+    // 更新会话活动时间
+    this.updateSessionActivity();
     
     // 采样判断
     if (Math.random() > (this.options.sampling || 1)) {
@@ -147,14 +320,17 @@ export class Tracker {
     }
     
     // 排除路径判断
-    if (this.shouldExcludePath(event.pagePath)) {
+    if (this.shouldExcludePath(event.page_path)) {
       this.log('事件路径被排除', event);
       return;
     }
     
+    // 确保使用最新的会话和设备信息
+    this.log(`构建事件数据: session_id=${this.session_id}, user_id=${this.device_fingerprint}`);
+    
     const fullEvent: TrackEvent = {
-      sessionId: this.sessionId,
-      userId: this.userId || undefined,
+      session_id: this.session_id,
+      user_id: this.device_fingerprint, // 使用设备指纹作为user_id
       timestamp: Date.now(),
       ...event
     };
@@ -188,8 +364,8 @@ export class Tracker {
     if (!isBrowser) return;
     
     this.track({
-      eventType: TrackEventType.PAGEVIEW,
-      pagePath: path,
+      event_type: TrackEventType.PAGEVIEW,
+      page_path: path,
       referrer: referrer || (typeof document !== 'undefined' ? document.referrer : ''),
       metadata: {
         title: typeof document !== 'undefined' ? document.title : '',
@@ -202,11 +378,11 @@ export class Tracker {
   public trackClick(element: HTMLElement, path: string): void {
     if (!isBrowser) return;
     
-    const elementPath = this.getElementPath(element);
+    const element_path = this.getElementPath(element);
     this.track({
-      eventType: TrackEventType.CLICK,
-      pagePath: path,
-      elementPath: elementPath,
+      event_type: TrackEventType.CLICK,
+      page_path: path,
+      element_path: element_path,
       metadata: {
         text: element.textContent?.trim().substring(0, 50) || '',
         tagName: element.tagName.toLowerCase(),
@@ -273,11 +449,16 @@ export class Tracker {
   
   // 发送事件到服务器
   private async sendEvents(events: TrackEvent[]): Promise<void> {
+    // 不需要字段映射，因为TrackEvent接口已经使用下划线格式
+    this.log('发送数据:', events);
+    
     try {
       const response = await fetch(this.options.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Session-ID': this.session_id, // 会话ID头
+          'X-Device-Fingerprint': this.device_fingerprint  // 设备指纹头
         },
         body: JSON.stringify({ events }),
         keepalive: true // 允许页面关闭时仍可发送请求
@@ -286,6 +467,11 @@ export class Tracker {
       if (!response.ok) {
         throw new Error(`HTTP error ${response.status}`);
       }
+      
+      // 尝试读取响应内容
+      const responseText = await response.text();
+      this.log('服务器响应:', responseText);
+      
     } catch (error) {
       this.log('发送事件失败', error);
       throw error;
@@ -320,8 +506,14 @@ export class Tracker {
   
   // 调试日志
   private log(...args: any[]): void {
-    if (isBrowser && this.options.debug) {
-      console.log('[Tracker]', ...args);
+    // 无论debug设置如何，都记录重要操作
+    if (isBrowser) {
+      if (this.options.debug) {
+        console.log('%c[Tracker]', 'color: #4CAF50; font-weight: bold;', ...args);
+      } else if (args[0]?.startsWith && args[0].startsWith('错误')) {
+        // 即使未开启debug，错误信息也会记录
+        console.error('%c[Tracker Error]', 'color: #F44336; font-weight: bold;', ...args);
+      }
     }
   }
   

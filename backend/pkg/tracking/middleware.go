@@ -46,6 +46,17 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	log.Printf("事件时间处理: timestamp=%d, 转换后时间=%s, 时区=%s",
 		req.Timestamp, eventTime.Format("2006-01-02 15:04:05"), eventTime.Location().String())
 
+	// 确保必要字段有值
+	if req.EventType == "" {
+		req.EventType = "UNKNOWN"
+		log.Printf("警告: 事件类型为空，使用默认值")
+	}
+
+	if req.PagePath == "" {
+		req.PagePath = "/"
+		log.Printf("警告: 页面路径为空，使用默认值")
+	}
+
 	// JSON字段转换
 	metadata := convertMapToString(req.Metadata)
 	customProps := convertMapToString(req.CustomProperties)
@@ -67,8 +78,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		Platform:         req.Platform,
 		DeviceInfo:       deviceInfo,
 		EventDuration:    req.EventDuration,
-		EventSource:      req.EventSource,
-		AppVersion:       req.AppVersion,
 	}
 
 	return event
@@ -98,6 +107,10 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 从请求头中获取设备指纹和会话ID
+		deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
+		sessionID := c.GetHeader("X-Session-ID")
+
 		// 对其他请求自动记录REQUEST事件
 		event := &UnpartitionedTrackEvent{
 			EventType:        "REQUEST",
@@ -106,7 +119,24 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			IPAddress:        c.ClientIP(),
 			CreatedAt:        time.Now().In(chinaLocation),
 			CustomProperties: `{"auto_tracked": true}`,
+			UserID:           deviceFingerprint, // 使用设备指纹作为user_id
+			SessionID:        sessionID,         // 使用会话ID
 		}
+
+		// 如果没有设备指纹，使用一个临时ID
+		if event.UserID == "" {
+			event.UserID = "auto_generated_" + c.ClientIP()
+			log.Printf("自动生成用户ID: %s", event.UserID)
+		}
+
+		// 如果没有会话ID，生成一个临时ID
+		if event.SessionID == "" {
+			event.SessionID = "auto_" + time.Now().Format("20060102150405") + "_" + c.ClientIP()
+			log.Printf("自动生成会话ID: %s", event.SessionID)
+		}
+
+		log.Printf("自动跟踪请求: path=%s, user_id=%s, session_id=%s",
+			event.PagePath, event.UserID, event.SessionID)
 
 		ts.TrackUnpartitionedEvent(event)
 		c.Next()
