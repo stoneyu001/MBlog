@@ -12,9 +12,10 @@ function getArticles(articlesPath: string) {
   return files
     .filter(file => file.endsWith('.md'))
     .map(file => {
+      const basePath = path.relative(path.resolve(__dirname, '..'), articlesPath)
       return {
         text: path.parse(file).name,
-        link: `/articles/${file}`
+        link: `/${basePath}/${file}`
       }
     })
 }
@@ -27,8 +28,8 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: '文章', link: '/articles/' },
-      { text: '埋点示例', link: '/tracking-example' },
+      { text: '🍵生活拾撷', link: '/life/' },
+      { text: '💻技术栈志', link: '/tech/' },
       { text: '关于', link: '/about' }
     ],
     search: {
@@ -69,19 +70,24 @@ export default defineConfig({
         }
       } as DefaultTheme.LocalSearchOptions
     },
-    sidebar: [
-      {
-        text: '所有文章',
-        items: getArticles(path.resolve(__dirname, '../articles'))
-      },
-      {
-        text: '功能演示',
-        items: [
-          { text: '埋点示例', link: '/tracking-example' },
-          { text: 'Markdown示例', link: '/markdown-examples' }
-        ]
-      }
-    ],
+    sidebar: {
+      // 当用户在 `life` 目录或其子目录下时，显示这个侧边栏
+      '/life/': [
+        {
+          text: '🍵生活拾撷',
+          // collapsed: true, // 默认折叠
+          items: getArticles(path.resolve(__dirname, '../life'))
+        }
+      ],
+      // 当用户在 `tech` 目录或其子目录下时，显示这个侧边栏
+      '/tech/': [
+        {
+          text: '💻技术栈志',
+          // collapsed: true, // 默认折叠
+          items: getArticles(path.resolve(__dirname, '../tech'))
+        }
+      ]
+    },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/stoneyu001/MBlog' }
     ]
