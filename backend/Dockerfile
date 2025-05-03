@@ -1,5 +1,6 @@
 # 使用官方 Go 轻量镜像作为构建环境
 FROM docker.xuanyuan.me/library/golang:1.24.0-alpine AS builder
+# FROM golang:1.24.0-alpine AS builder
 
 # 设置工作目录
 WORKDIR /build
@@ -15,6 +16,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o blog
 
 # 使用轻量级镜像运行
 FROM docker.xuanyuan.me/library/alpine:latest
+# FROM alpine:latest
 
 # 设置时区为中国时区(修改方式确保正确链接)
 ENV TZ=Asia/Shanghai
