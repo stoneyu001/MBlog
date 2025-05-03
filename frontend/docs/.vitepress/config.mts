@@ -24,13 +24,13 @@ function getArticles(articlesPath: string) {
 export default defineConfig({
   title: "StoneYu Blog",
   description: "share and learn",
+  lastUpdated: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: '🍵生活拾撷', link: '/life/' },
-      { text: '💻技术栈志', link: '/tech/' },
-      { text: '关于', link: '/about' }
+      { text: '🍵生活拾撷', link: '/life/🍵生活拾撷' },
+      { text: '💻技术栈志', link: '/tech/💻技术栈志' },
     ],
     search: {
       provider: 'local',
