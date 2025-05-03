@@ -1,8 +1,9 @@
 import DefaultTheme from 'vitepress/theme'
 import { type Theme } from 'vitepress'
-import { onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, h } from 'vue'
 import './styles/custom.css' // 自定义样式
 import createTrackingPlugin from '../plugins/tracking'
+import ArticleMeta from './components/ArticleMeta.vue' // 导入标签组件
 
 // 创建跟踪插件
 const trackingPlugin = createTrackingPlugin({
@@ -48,11 +49,21 @@ export default {
         }
       }
     });
+
+    // 全局注册标签组件
+    app.component('ArticleMeta', ArticleMeta);
   },
   setup() {
     // 在组件卸载时清理资源
     onBeforeUnmount(() => {
       trackingPlugin.dispose();
     });
+  },
+  // 自定义布局，在文章标题后添加标签
+  Layout() {
+    // 使用默认主题的布局
+    return h(DefaultTheme.Layout, null, {
+      'doc-before': () => h(ArticleMeta)  // 改为 doc-before 插槽
+    })
   }
 } satisfies Theme 

@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitepress'
-import type { DefaultTheme } from 'vitepress'
+import type { DefaultTheme, PageData, TransformPageContext } from 'vitepress'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { extractTags, getManualTags, getFileNameFromUrl } from './plugins/tagExtractor'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -25,12 +26,72 @@ export default defineConfig({
   title: "StoneYu Blog",
   description: "share and learn",
   lastUpdated: true,
+  
+  // 添加自动标签提取和其他元数据处理
+  transformPageData(pageData: PageData & { relativePath?: string }, ctx: TransformPageContext) {
+    // 检查是否是文章页面（跳过索引页和其他特殊页面）
+    const relativePath = pageData.relativePath || '';
+    const isArticlePage = !relativePath.includes('index') && relativePath !== '';
+    
+    // 获取原始Markdown内容
+    const rawContent = fs.readFileSync(
+      path.resolve(__dirname, '..', relativePath),
+      'utf-8'
+    );
+    
+    if (isArticlePage && rawContent) {
+      // 检查是否已经有手动指定的标签
+      const hasManualTags = getManualTags(pageData.frontmatter);
+      
+      // 如果没有手动指定的标签，则自动提取
+      if (!hasManualTags) {
+        try {
+          const fileName = path.basename(relativePath);
+          const autoTags = extractTags(rawContent, fileName, 5);
+          
+          // 确保 frontmatter 对象存在
+          if (!pageData.frontmatter) {
+            pageData.frontmatter = {};
+          }
+          
+          // 添加自动提取的标签
+          pageData.frontmatter.tags = autoTags;
+          
+          // 自动生成摘要（如果没有手动提供）
+          if (!pageData.frontmatter.description && !pageData.frontmatter.excerpt) {
+            const plainText = rawContent
+              .replace(/```[\s\S]*?```/g, '')
+              .replace(/`[^`]+`/g, '')
+              .replace(/\[.*?\]\(.*?\)/g, '')
+              .replace(/#+\s/g, '')
+              .replace(/\!\[.*?\]\(.*?\)/g, '')
+              .replace(/[*>_~-]/g, ' ')
+              .replace(/\s+/g, ' ');
+            
+            pageData.frontmatter.description = plainText.slice(0, 150) + (plainText.length > 150 ? '...' : '');
+          }
+          
+          // 计算阅读时间（如果没有手动提供）
+          if (!pageData.frontmatter.readingTime) {
+            const wordsPerMinute = 200; // 中文约200字/分钟
+            const contentLength = rawContent.length;
+            pageData.frontmatter.readingTime = Math.ceil(contentLength / wordsPerMinute);
+          }
+        } catch (e) {
+          console.error(`Error extracting tags for ${relativePath}:`, e);
+        }
+      }
+    }
+    
+    return pageData;
+  },
+  
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
       { text: '🍵生活拾撷', link: '/life/🍵生活拾撷' },
-      { text: '💻技术栈志', link: '/tech/💻技术栈志' },
+      { text: '💻技术栈志', link: '/tech/💻技术栈志' }
     ],
     search: {
       provider: 'local',
@@ -55,12 +116,12 @@ export default defineConfig({
           }
         },
         // @ts-ignore
-        fields: ['title', 'content'], // 索引字段
-        storeFields: ['title', 'href'], // 返回字段
+        fields: ['title', 'content', 'tags'], // 添加标签到索引字段
+        storeFields: ['title', 'href', 'tags'], // 返回字段也包含标签
         searchOptions: {
           prefix: true, // 前缀匹配
           fuzzy: 0.2, // 模糊匹配容错率
-          boost: { title: 4, content: 1 } // 权重配置
+          boost: { title: 4, content: 1, tags: 3 } // 权重配置，标签权重高
         },
         // 中文分词优化
         tokenize: (text) => {

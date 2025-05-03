@@ -35,4 +35,14 @@
 
 .vp-doc p {
   line-height: 1.7;
+}
+
+/* 标签样式优化 */
+.article-tags {
+  margin: -0.5rem 0 2rem;
+}
+
+/* 确保标签在标题下方 */
+.vp-doc h1 + .article-tags {
+  margin-top: 0.5rem;
 } 

@@ -3,6 +3,7 @@ package filemanager
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,30 +11,75 @@ import (
 )
 
 // 文章文件的目录
-const ArticlesDir = "/app/frontend/docs/articles"
+var ArticlesDirs = []string{
+	"/app/frontend/docs/tech",
+	"/app/frontend/docs/life",
+}
+
+// 获取工作目录
+func getWorkingDir() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Printf("获取工作目录失败: %v", err)
+		return "", err
+	}
+	log.Printf("当前工作目录: %s", dir)
+	return dir, nil
+}
 
 // 初始化文件管理器，确保目录存在
 func Init() error {
-	if _, err := os.Stat(ArticlesDir); os.IsNotExist(err) {
-		return os.MkdirAll(ArticlesDir, 0755)
+	for _, dir := range ArticlesDirs {
+		log.Printf("检查目录是否存在: %s", dir)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			log.Printf("创建目录: %s", dir)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				log.Printf("创建目录失败: %v", err)
+				return err
+			}
+		}
 	}
 	return nil
 }
 
 // 获取所有文章文件
 func GetAllFiles() ([]string, error) {
-	files, err := ioutil.ReadDir(ArticlesDir)
-	if err != nil {
-		return nil, err
-	}
+	var allFiles []string
 
-	var filenames []string
-	for _, file := range files {
-		if !file.IsDir() && (strings.HasSuffix(file.Name(), ".md") || strings.HasSuffix(file.Name(), ".markdown")) {
-			filenames = append(filenames, file.Name())
+	log.Printf("开始扫描文章文件...")
+	for _, dir := range ArticlesDirs {
+		log.Printf("扫描目录: %s", dir)
+
+		// 检查目录是否存在
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			log.Printf("目录不存在: %s", dir)
+			continue
+		}
+
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				log.Printf("遍历文件失败: %v", err)
+				return err
+			}
+			if !info.IsDir() && (strings.HasSuffix(info.Name(), ".md") || strings.HasSuffix(info.Name(), ".markdown")) {
+				// 使用完整路径
+				log.Printf("找到文章: %s", path)
+				allFiles = append(allFiles, path)
+			}
+			return nil
+		})
+		if err != nil {
+			log.Printf("扫描目录失败: %v", err)
+			return nil, err
 		}
 	}
-	return filenames, nil
+
+	log.Printf("找到文章总数: %d", len(allFiles))
+	for i, file := range allFiles {
+		log.Printf("文章[%d]: %s", i+1, file)
+	}
+
+	return allFiles, nil
 }
 
 // 获取文件内容
@@ -44,12 +90,15 @@ func GetFileContent(filename string) (string, error) {
 		return "", fmt.Errorf("无效的文件名")
 	}
 
-	filePath := filepath.Join(ArticlesDir, filename)
-	content, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return "", err
+	// 尝试在所有目录中查找文件
+	for _, dir := range ArticlesDirs {
+		fullPath := filepath.Join(dir, filename)
+		content, err := ioutil.ReadFile(fullPath)
+		if err == nil {
+			return string(content), nil
+		}
 	}
-	return string(content), nil
+	return "", fmt.Errorf("文件不存在")
 }
 
 // 保存文件
@@ -65,8 +114,22 @@ func SaveFile(filename string, content string) error {
 		filename = filename + ".md"
 	}
 
-	filePath := filepath.Join(ArticlesDir, filename)
-	return ioutil.WriteFile(filePath, []byte(content), 0644)
+	// 根据文件名前缀决定保存目录
+	var targetDir string
+	if strings.HasPrefix(filename, "tech/") {
+		targetDir = ArticlesDirs[0] // tech目录
+	} else if strings.HasPrefix(filename, "life/") {
+		targetDir = ArticlesDirs[1] // life目录
+	} else {
+		targetDir = ArticlesDirs[0] // 默认保存到tech目录
+	}
+
+	fullPath := filepath.Join(targetDir, filename)
+	// 确保目标目录存在
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(fullPath, []byte(content), 0644)
 }
 
 // 删除文件
@@ -77,8 +140,14 @@ func DeleteFile(filename string) error {
 		return fmt.Errorf("无效的文件名")
 	}
 
-	filePath := filepath.Join(ArticlesDir, filename)
-	return os.Remove(filePath)
+	// 尝试在所有目录中删除文件
+	for _, dir := range ArticlesDirs {
+		fullPath := filepath.Join(dir, filename)
+		if err := os.Remove(fullPath); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("文件不存在或无法删除")
 }
 
 // 更新侧边栏配置
@@ -91,8 +160,16 @@ func UpdateSidebarConfig() error {
 	// 构建配置片段
 	var sidebarItems string
 	for _, file := range files {
-		title := strings.TrimSuffix(strings.TrimSuffix(file, ".md"), ".markdown")
-		sidebarItems += fmt.Sprintf("          { text: '%s', link: '/articles/%s' },\n", title, file)
+		// 获取相对路径，去掉前缀部分
+		relPath := file
+		for _, dir := range ArticlesDirs {
+			if strings.HasPrefix(file, dir) {
+				relPath = strings.TrimPrefix(file, dir+"/")
+				break
+			}
+		}
+		title := strings.TrimSuffix(strings.TrimSuffix(relPath, ".md"), ".markdown")
+		sidebarItems += fmt.Sprintf("          { text: '%s', link: '/%s' },\n", title, relPath)
 	}
 
 	// 读取现有配置文件

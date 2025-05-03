@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -152,22 +153,28 @@ func main() {
 	// 文件管理相关API
 	// 1. 获取所有文件
 	r.GET("/api/files", func(c *gin.Context) {
+		log.Printf("收到获取文件列表请求")
 		files, err := filemanager.GetAllFiles()
 		if err != nil {
-			c.JSON(500, gin.H{"error": "获取文件列表失败"})
+			log.Printf("获取文件列表失败: %v", err)
+			c.JSON(500, gin.H{"error": fmt.Sprintf("获取文件列表失败: %v", err)})
 			return
 		}
+		log.Printf("成功获取文件列表，文件数量: %d", len(files))
 		c.JSON(200, files)
 	})
 
 	// 2. 获取单个文件内容
 	r.GET("/api/files/:filename", func(c *gin.Context) {
 		filename := c.Param("filename")
+		log.Printf("收到获取文件内容请求: %s", filename)
 		content, err := filemanager.GetFileContent(filename)
 		if err != nil {
-			c.JSON(404, gin.H{"error": "文件不存在或无法读取"})
+			log.Printf("获取文件内容失败: %v", err)
+			c.JSON(404, gin.H{"error": fmt.Sprintf("文件不存在或无法读取: %v", err)})
 			return
 		}
+		log.Printf("成功获取文件内容: %s", filename)
 		c.String(200, content)
 	})
 

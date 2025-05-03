@@ -1,5 +1,9 @@
 {
   "devDependencies": {
     "@types/node": "^22.14.1"
+  },
+  "dependencies": {
+    "natural": "^8.0.1",
+    "nodejieba": "^3.4.4"
   }
 }
