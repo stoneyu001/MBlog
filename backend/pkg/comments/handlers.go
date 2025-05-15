@@ -3,6 +3,7 @@ package comments
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,9 @@ func (cs *CommentService) handleAddComment(c *gin.Context) {
 		return
 	}
 
+	// 记录文章ID，便于调试中文问题
+	log.Printf("收到评论请求，文章ID: %s", req.ArticleID)
+
 	// 创建评论对象
 	comment := &Comment{
 		ArticleID: req.ArticleID,
@@ -63,11 +67,21 @@ func (cs *CommentService) handleAddComment(c *gin.Context) {
 
 // handleGetCommentsByArticle 处理获取文章评论的请求
 func (cs *CommentService) handleGetCommentsByArticle(c *gin.Context) {
+	// 获取并处理articleId参数，确保正确处理URL编码的中文路径
 	articleID := c.Param("articleId")
 	if articleID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "文章ID不能为空"})
 		return
 	}
+
+	// 尝试解码URL编码的articleID
+	decodedID, err := url.QueryUnescape(articleID)
+	if err == nil && decodedID != articleID {
+		articleID = decodedID
+		log.Printf("文章ID已解码: %s", articleID)
+	}
+
+	log.Printf("获取评论，文章ID: %s", articleID)
 
 	// 获取评论
 	comments, err := cs.GetCommentsByArticle(articleID)
@@ -76,6 +90,8 @@ func (cs *CommentService) handleGetCommentsByArticle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取评论失败"})
 		return
 	}
+
+	log.Printf("成功获取评论，文章ID: %s，评论数量: %d", articleID, len(comments))
 
 	// 构建评论树
 	commentTree := cs.BuildCommentTree(comments)
