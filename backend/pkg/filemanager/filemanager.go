@@ -202,7 +202,21 @@ func UpdateSidebarConfig() error {
 
 // 构建站点
 func BuildSite() error {
-	cmd := exec.Command("npm", "run", "build")
-	cmd.Dir = "/app/frontend"
-	return cmd.Run()
+	// 切换到前端目录
+	cmd := exec.Command("cd", "/app/frontend")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("切换到前端目录失败: %v", err)
+	}
+
+	// 安装依赖
+	installCmd := exec.Command("npm", "install")
+	installCmd.Dir = "/app/frontend"
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("安装依赖失败: %v", err)
+	}
+
+	// 执行构建
+	buildCmd := exec.Command("npm", "run", "build")
+	buildCmd.Dir = "/app/frontend"
+	return buildCmd.Run()
 }
