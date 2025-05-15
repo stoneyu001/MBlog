@@ -42,6 +42,9 @@ func (ts *TrackingService) RegisterHandlers(router *gin.Engine) {
 
 		// 检查跟踪服务状态
 		trackGroup.GET("/status", ts.handleTrackingStatus)
+
+		// 数据分析API
+		trackGroup.GET("/analytics", ts.HandleAnalytics)
 	}
 }
 
