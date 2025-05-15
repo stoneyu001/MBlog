@@ -158,9 +158,24 @@ const route = useRoute();
 
 // 使用路径作为文章ID，确保中文路径也能正确处理
 const articleId = computed(() => {
-  // 移除末尾的斜杠并确保路径使用UTF-8编码
-  return decodeURIComponent(route.path.replace(/\/$/, '') || '/index');
+  // 移除末尾的斜杠，然后对路径进行编码转换
+  const path = decodeURIComponent(route.path.replace(/\/$/, '') || '/index');
+  
+  // 创建一个更简单的标识符，避免特殊字符和完整路径
+  // 移除所有表情符号和特殊字符，只保留基本的URL友好字符
+  const simpleId = path
+    .replace(/[^\w\u4e00-\u9fa5\-\/\.]/g, '') // 只保留字母、数字、中文、连字符、斜杠和点
+    .replace(/\/+/g, '_')                     // 将斜杠替换为下划线
+    .replace(/^_/, '')                        // 移除开头的下划线
+    .replace(/_$/, '');                       // 移除结尾的下划线
+  
+  console.log('原始路径:', path, '简化的文章ID:', simpleId);
+  return simpleId || 'index';
 });
+
+// API基础URL配置
+const apiBaseUrl = 'http://localhost:3000'; // 开发环境
+// const apiBaseUrl = ''; // 生产环境使用相对路径
 
 const loading = ref(false);
 const loadError = ref('');
@@ -210,17 +225,33 @@ async function loadComments() {
   try {
     console.log('获取评论，文章ID:', articleId.value);
     const encodedId = encodeURIComponent(articleId.value);
-    const response = await fetch(`/api/comments/${encodedId}`);
+    console.log('编码后的文章ID:', encodedId, '请求URL:', `${apiBaseUrl}/api/comments/${encodedId}`);
     
+    const response = await fetch(`${apiBaseUrl}/api/comments/${encodedId}`);
+    
+    console.log('评论API响应状态:', response.status, response.statusText);
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('评论API错误响应:', errorText);
       throw new Error('获取评论失败');
     }
     
     const data = await response.json();
-    console.log('获取到评论数量:', data.length);
-    comments.value = data;
+    console.log('获取到评论数据:', data);
+    console.log('获取到评论数据类型:', typeof data, '是否数组:', Array.isArray(data));
+    
+    // 处理null或undefined响应，转换为空数组
+    if (data === null || data === undefined) {
+      console.log('响应数据为null或undefined，使用空数组');
+      comments.value = [];
+    } else {
+      comments.value = data;
+    }
+    
+    console.log('获取到评论数量:', comments.value.length);
   } catch (error) {
-    console.error('加载评论出错:', error);
+    console.error('加载评论出错详细信息:', error);
+    console.error('错误堆栈:', error.stack);
     loadError.value = '加载评论失败，请稍后重试';
   } finally {
     loading.value = false;
@@ -240,22 +271,34 @@ async function submitComment() {
   
   try {
     console.log('提交评论，文章ID:', articleId.value);
-    const response = await fetch('/api/comments', {
+    
+    const commentData = {
+      article_id: articleId.value,
+      nickname: formData.value.nickname,
+      email: formData.value.email,
+      content: formData.value.content
+    };
+    
+    console.log('评论提交数据:', commentData);
+    
+    const response = await fetch(`${apiBaseUrl}/api/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        article_id: articleId.value,
-        nickname: formData.value.nickname,
-        email: formData.value.email,
-        content: formData.value.content
-      })
+      body: JSON.stringify(commentData)
     });
     
+    console.log('评论提交响应状态:', response.status, response.statusText);
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('评论提交错误响应:', errorText);
       throw new Error('提交评论失败');
     }
+    
+    const responseData = await response.json();
+    console.log('评论提交响应数据:', responseData);
     
     // 保存用户信息
     saveUserInfo();
@@ -273,7 +316,8 @@ async function submitComment() {
       submitSuccess.value = false;
     }, 3000);
   } catch (error) {
-    console.error('提交评论出错:', error);
+    console.error('提交评论出错详细信息:', error);
+    console.error('错误堆栈:', error.stack);
     submitError.value = '提交评论失败，请稍后重试';
   } finally {
     isSubmitting.value = false;
@@ -307,7 +351,7 @@ async function submitReply() {
   
   try {
     console.log('提交回复，文章ID:', articleId.value, '回复ID:', replyingTo.value);
-    const response = await fetch('/api/comments', {
+    const response = await fetch(`${apiBaseUrl}/api/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

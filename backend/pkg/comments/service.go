@@ -88,14 +88,20 @@ func (cs *CommentService) GetCommentsByArticle(articleID string) ([]Comment, err
 		log.Printf("设置客户端编码失败: %v", err)
 	}
 
-	rows, err := cs.db.Query(`
+	log.Printf("执行查询，参数: articleID=%s", articleID)
+
+	// 构建SQL
+	query := `
 		SELECT id, article_id, nickname, email, content, created_at, ip_address, status, reply_to, user_agent
 		FROM comments
 		WHERE article_id = $1 AND status = 'approved'
 		ORDER BY created_at DESC
-	`, articleID)
+	`
+
+	// 执行查询
+	rows, err := cs.db.Query(query, articleID)
 	if err != nil {
-		log.Printf("查询评论失败: %v", err)
+		log.Printf("查询评论失败: %v, SQL: %s, 参数: articleID=%s", err, query, articleID)
 		return nil, err
 	}
 	defer rows.Close()
@@ -115,6 +121,11 @@ func (cs *CommentService) GetCommentsByArticle(articleID string) ([]Comment, err
 		comments = append(comments, comment)
 	}
 
+	if err = rows.Err(); err != nil {
+		log.Printf("遍历评论结果集时出错: %v", err)
+	}
+
+	log.Printf("查询完成，获取到 %d 条评论", len(comments))
 	return comments, nil
 }
 

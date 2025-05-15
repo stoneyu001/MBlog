@@ -67,12 +67,15 @@ func (cs *CommentService) handleAddComment(c *gin.Context) {
 
 // handleGetCommentsByArticle 处理获取文章评论的请求
 func (cs *CommentService) handleGetCommentsByArticle(c *gin.Context) {
-	// 获取并处理articleId参数，确保正确处理URL编码的中文路径
+	// 获取并处理articleId参数
 	articleID := c.Param("articleId")
 	if articleID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "文章ID不能为空"})
 		return
 	}
+
+	// 添加请求URL日志
+	log.Printf("评论请求URL: %s, 参数: %+v", c.Request.URL.String(), c.Request.URL.Query())
 
 	// 尝试解码URL编码的articleID
 	decodedID, err := url.QueryUnescape(articleID)
@@ -81,12 +84,24 @@ func (cs *CommentService) handleGetCommentsByArticle(c *gin.Context) {
 		log.Printf("文章ID已解码: %s", articleID)
 	}
 
-	log.Printf("获取评论，文章ID: %s", articleID)
+	// 记录所有转换前后的值，帮助调试
+	log.Printf("文章ID处理过程: 原始=%s, 解码后=%s", c.Param("articleId"), articleID)
+
+	// 清理articleID，确保不包含非法字符
+	// 这一步可能在前端已经做了，但为了安全起见再做一次
+	cleanID := strings.TrimSpace(articleID)
+	if cleanID != articleID {
+		log.Printf("文章ID已清理: %s -> %s", articleID, cleanID)
+		articleID = cleanID
+	}
+
+	log.Printf("最终使用的文章ID: %s", articleID)
+	log.Printf("查询SQL将使用: SELECT * FROM comments WHERE article_id = '%s' AND status = 'approved'", articleID)
 
 	// 获取评论
 	comments, err := cs.GetCommentsByArticle(articleID)
 	if err != nil {
-		log.Printf("获取评论失败: %v", err)
+		log.Printf("获取评论失败: %v, SQL参数: articleID=%s", err, articleID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取评论失败"})
 		return
 	}
