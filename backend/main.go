@@ -8,9 +8,12 @@ import (
 	"os"
 	"time"
 
+	// 导入评论系统包
+	"blog/pkg/comments"
 	"blog/pkg/filemanager"
-	"blog/pkg/tracking" // 导入跟踪包
+	"blog/pkg/tracking"
 
+	// 导入跟踪包
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq" // 必须添加的PostgreSQL驱动
 )
@@ -75,6 +78,12 @@ func main() {
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)
 
+	// 初始化评论服务
+	commentService := comments.NewCommentService(db)
+	if err := commentService.Init(); err != nil {
+		log.Fatal("初始化评论服务失败:", err)
+	}
+
 	// 初始化文件管理器
 	if err := filemanager.Init(); err != nil {
 		log.Fatal("初始化文件管理器失败:", err)
@@ -102,6 +111,9 @@ func main() {
 
 	// 注册跟踪API处理程序
 	trackingService.RegisterHandlers(r)
+
+	// 注册评论API处理程序
+	commentService.RegisterHandlers(r)
 
 	r.GET("/api/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})

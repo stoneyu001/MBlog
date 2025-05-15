@@ -4,6 +4,7 @@ import { onBeforeUnmount, h } from 'vue'
 import './styles/custom.css' // 自定义样式
 import createTrackingPlugin from '../plugins/tracking'
 import ArticleMeta from './components/ArticleMeta.vue' // 导入标签组件
+import CommentSection from './components/CommentSection.vue' // 导入评论组件
 
 // 创建跟踪插件
 const trackingPlugin = createTrackingPlugin({
@@ -50,8 +51,9 @@ export default {
       }
     });
 
-    // 全局注册标签组件
+    // 全局注册组件
     app.component('ArticleMeta', ArticleMeta);
+    app.component('CommentSection', CommentSection);
   },
   setup() {
     // 在组件卸载时清理资源
@@ -59,11 +61,12 @@ export default {
       trackingPlugin.dispose();
     });
   },
-  // 自定义布局，在文章标题后添加标签
+  // 自定义布局，在文章标题后添加标签，在底部添加评论
   Layout() {
     // 使用默认主题的布局
     return h(DefaultTheme.Layout, null, {
-      'doc-before': () => h(ArticleMeta)  // 改为 doc-before 插槽
+      'doc-before': () => h(ArticleMeta),  // 改为 doc-before 插槽
+      'doc-after': () => h(CommentSection)  // 在文档后添加评论组件
     })
   }
 } satisfies Theme 
