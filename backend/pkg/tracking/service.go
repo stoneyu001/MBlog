@@ -111,6 +111,12 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		}
 	}()
 
+	// 设置客户端编码为UTF8
+	_, err = tx.Exec("SET client_encoding = 'UTF8'")
+	if err != nil {
+		log.Printf("设置客户端编码失败: %v", err)
+	}
+
 	// 准备批量插入语句
 	stmt, err := tx.Prepare(`
 		INSERT INTO track_event 
@@ -147,8 +153,8 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 			event.DeviceInfo = "{}"
 		}
 
-		// 记录设备指纹（user_id）
-		log.Printf("使用设备指纹作为user_id: %s", event.UserID)
+		// 记录设备指纹（user_id）和页面路径，用于诊断中文问题
+		log.Printf("处理事件: user_id=%s, page_path=%s", event.UserID, event.PagePath)
 
 		_, execErr := stmt.Exec(
 			event.SessionID,
@@ -198,8 +204,17 @@ func (ts *TrackingService) insertSingleEvent(event *UnpartitionedTrackEvent) {
 		event.DeviceInfo = "{}"
 	}
 
+	// 先设置连接的编码
+	_, err := ts.db.Exec("SET client_encoding = 'UTF8'")
+	if err != nil {
+		log.Printf("单条插入设置编码失败: %v", err)
+	}
+
+	// 记录中文内容
+	log.Printf("单条插入事件: page_path=%s", event.PagePath)
+
 	// 直接执行插入
-	_, err := ts.db.Exec(`
+	_, err = ts.db.Exec(`
 		INSERT INTO track_event 
 		(session_id, user_id, event_type, element_path, page_path, referrer, 
 		metadata, user_agent, ip_address, created_at, custom_properties, 

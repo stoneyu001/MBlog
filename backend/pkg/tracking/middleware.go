@@ -3,6 +3,7 @@ package tracking
 import (
 	"encoding/json"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -111,10 +112,22 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 		deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
 		sessionID := c.GetHeader("X-Session-ID")
 
+		// 对页面路径进行URL解码
+		pagePath := c.Request.URL.Path
+		decodedPagePath, err := url.QueryUnescape(pagePath)
+		if err != nil {
+			log.Printf("中间件URL解码失败: %v, 使用原始路径: %s", err, pagePath)
+		} else {
+			if decodedPagePath != pagePath {
+				log.Printf("中间件URL解码: %s -> %s", pagePath, decodedPagePath)
+			}
+			pagePath = decodedPagePath
+		}
+
 		// 对其他请求自动记录REQUEST事件
 		event := &UnpartitionedTrackEvent{
 			EventType:        "REQUEST",
-			PagePath:         c.Request.URL.Path,
+			PagePath:         pagePath,
 			UserAgent:        c.Request.UserAgent(),
 			IPAddress:        c.ClientIP(),
 			CreatedAt:        time.Now().In(chinaLocation),
