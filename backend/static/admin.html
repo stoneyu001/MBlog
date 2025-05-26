@@ -104,7 +104,10 @@
 
         // 加载文件内容
         function loadFile(filename) {
-            fetch(`/api/files/${filename}`)
+            // 去除 /app/frontend/docs/ 前缀，获取相对路径
+            const relativeFilename = filename.replace('/app/frontend/docs/', '');
+            
+            fetch(`/api/files/${relativeFilename}`)
                 .then(res => res.text())
                 .then(content => {
                     document.getElementById('filename').value = filename;
