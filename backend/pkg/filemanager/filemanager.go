@@ -90,18 +90,29 @@ func GetFileContent(filename string) (string, error) {
 		return "", fmt.Errorf("无效的文件名")
 	}
 
-	// 构造完整路径，直接在相对路径前加上基准目录
-	// 假设前端传过来的 filename 已经是相对于 /app/frontend/docs/ 的路径
-	fullPath := filepath.Join("/app/frontend/docs/", filename)
-
-	log.Printf("尝试读取文件: %s", fullPath) // 添加日志
-
-	content, err := ioutil.ReadFile(fullPath)
-	if err == nil {
-		return string(content), nil
+	// 如果文件名以tech/或life/开头，直接在对应目录查找
+	var searchDirs []string
+	if strings.HasPrefix(filename, "tech/") {
+		searchDirs = []string{ArticlesDirs[0]}
+		filename = strings.TrimPrefix(filename, "tech/")
+	} else if strings.HasPrefix(filename, "life/") {
+		searchDirs = []string{ArticlesDirs[1]}
+		filename = strings.TrimPrefix(filename, "life/")
+	} else {
+		searchDirs = ArticlesDirs
 	}
 
-	log.Printf("读取文件失败: %s, 错误: %v", fullPath, err) // 添加日志
+	// 在指定目录中查找文件
+	for _, dir := range searchDirs {
+		fullPath := filepath.Join(dir, filename)
+		log.Printf("尝试读取文件: %s", fullPath)
+
+		content, err := ioutil.ReadFile(fullPath)
+		if err == nil {
+			return string(content), nil
+		}
+		log.Printf("在 %s 中读取文件失败: %v", fullPath, err)
+	}
 
 	return "", fmt.Errorf("文件不存在或无法读取")
 }

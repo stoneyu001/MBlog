@@ -177,8 +177,12 @@ func main() {
 	})
 
 	// 2. 获取单个文件内容
-	r.GET("/api/files/:filename", func(c *gin.Context) {
+	r.GET("/api/files/*filename", func(c *gin.Context) {
 		filename := c.Param("filename")
+		// 移除路径参数前面的斜杠
+		if len(filename) > 0 && filename[0] == '/' {
+			filename = filename[1:]
+		}
 		log.Printf("收到获取文件内容请求: %s", filename)
 		content, err := filemanager.GetFileContent(filename)
 		if err != nil {
