@@ -363,13 +363,17 @@ export class Tracker {
   public trackPageView(path: string, referrer?: string): void {
     if (!isBrowser) return;
     
+    // 确保URL编码一致性
+    const encodedPath = encodeURIComponent(path);
+    const encodedReferrer = referrer ? encodeURIComponent(referrer) : '';
+    
     this.track({
       event_type: TrackEventType.PAGEVIEW,
-      page_path: path,
-      referrer: referrer || (typeof document !== 'undefined' ? document.referrer : ''),
+      page_path: encodedPath,
+      referrer: encodedReferrer,
       metadata: {
         title: typeof document !== 'undefined' ? document.title : '',
-        url: typeof window !== 'undefined' ? window.location.href : ''
+        url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : ''
       }
     });
   }
@@ -379,15 +383,19 @@ export class Tracker {
     if (!isBrowser) return;
     
     const element_path = this.getElementPath(element);
+    const encodedPath = encodeURIComponent(path);
+    const encodedElementPath = encodeURIComponent(element_path);
+    
     this.track({
       event_type: TrackEventType.CLICK,
-      page_path: path,
-      element_path: element_path,
+      page_path: encodedPath,
+      element_path: encodedElementPath,
       metadata: {
         text: element.textContent?.trim().substring(0, 50) || '',
         tagName: element.tagName.toLowerCase(),
         className: element.className,
-        id: element.id
+        id: element.id,
+        href: element.tagName.toLowerCase() === 'a' ? encodeURIComponent((element as HTMLAnchorElement).href || '') : undefined
       }
     });
   }
@@ -402,11 +410,11 @@ export class Tracker {
       let identifier = currentElement.tagName.toLowerCase();
       
       if (currentElement.id) {
-        identifier += `#${currentElement.id}`;
+        identifier += `#${encodeURIComponent(currentElement.id)}`;
       } else if (currentElement.className) {
         const classList = currentElement.className.split(/\s+/).filter(Boolean);
         if (classList.length > 0) {
-          identifier += `.${classList.join('.')}`;
+          identifier += `.${classList.map(c => encodeURIComponent(c)).join('.')}`;
         }
       }
       
@@ -449,26 +457,36 @@ export class Tracker {
   
   // 发送事件到服务器
   private async sendEvents(events: TrackEvent[]): Promise<void> {
-    // 不需要字段映射，因为TrackEvent接口已经使用下划线格式
-    this.log('发送数据:', events);
+    // 确保所有URL相关字段都已正确编码
+    const processedEvents = events.map(event => ({
+      ...event,
+      page_path: event.page_path, // 已在track方法中编码
+      element_path: event.element_path, // 已在track方法中编码
+      referrer: event.referrer, // 已在track方法中编码
+      metadata: event.metadata ? {
+        ...event.metadata,
+        url: event.metadata.url ? encodeURIComponent(event.metadata.url) : undefined
+      } : undefined
+    }));
+    
+    this.log('发送数据:', processedEvents);
     
     try {
       const response = await fetch(this.options.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Session-ID': this.session_id, // 会话ID头
-          'X-Device-Fingerprint': this.device_fingerprint  // 设备指纹头
+          'X-Session-ID': this.session_id,
+          'X-Device-Fingerprint': this.device_fingerprint
         },
-        body: JSON.stringify({ events }),
-        keepalive: true // 允许页面关闭时仍可发送请求
+        body: JSON.stringify(processedEvents),
+        keepalive: true
       });
       
       if (!response.ok) {
         throw new Error(`HTTP error ${response.status}`);
       }
       
-      // 尝试读取响应内容
       const responseText = await response.text();
       this.log('服务器响应:', responseText);
       

@@ -1,9 +1,11 @@
 package tracking
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +26,18 @@ func init() {
 
 	// 输出当前时区和时间，用于调试
 	log.Printf("初始化时区: %s, 当前时间: %s", chinaLocation.String(), time.Now().In(chinaLocation).Format("2006-01-02 15:04:05"))
+}
+
+// 确保数据库连接使用UTF8编码
+func (ts *TrackingService) ensureUTF8Encoding() error {
+	if ts.db != nil {
+		_, err := ts.db.Exec("SET client_encoding = 'UTF8'")
+		if err != nil {
+			log.Printf("设置数据库客户端编码失败: %v", err)
+			return err
+		}
+	}
+	return nil
 }
 
 // 将请求转换为不分区埋点事件对象
@@ -53,14 +67,72 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		log.Printf("警告: 事件类型为空，使用默认值")
 	}
 
-	if req.PagePath == "" {
-		req.PagePath = "/"
-		log.Printf("警告: 页面路径为空，使用默认值")
+	// 统一处理所有URL相关字段的解码
+	// 处理页面路径
+	pagePath := req.PagePath
+	if pagePath == "" {
+		pagePath = "/"
+		log.Printf("警告: 页面路径为空，使用默认值: /")
+	} else {
+		decodedPath, err := url.QueryUnescape(pagePath)
+		if err != nil {
+			log.Printf("页面路径URL解码失败: %v, 使用原始路径: %s", err, pagePath)
+		} else {
+			if decodedPath != pagePath {
+				log.Printf("页面路径URL解码: %s -> %s", pagePath, decodedPath)
+			}
+			pagePath = decodedPath
+		}
+	}
+
+	// 处理元素路径
+	elementPath := req.ElementPath
+	if elementPath != "" {
+		decodedPath, err := url.QueryUnescape(elementPath)
+		if err != nil {
+			log.Printf("元素路径URL解码失败: %v, 使用原始路径: %s", err, elementPath)
+		} else {
+			if decodedPath != elementPath {
+				log.Printf("元素路径URL解码: %s -> %s", elementPath, decodedPath)
+			}
+			elementPath = decodedPath
+		}
+	}
+
+	// 处理来源URL
+	referrer := req.Referrer
+	if referrer != "" {
+		decodedURL, err := url.QueryUnescape(referrer)
+		if err != nil {
+			log.Printf("来源URL解码失败: %v, 使用原始URL: %s", err, referrer)
+		} else {
+			if decodedURL != referrer {
+				log.Printf("来源URL解码: %s -> %s", referrer, decodedURL)
+			}
+			referrer = decodedURL
+		}
+	}
+
+	// 处理自定义属性中的URL
+	customProps := req.CustomProperties
+	if customProps != nil {
+		// 检查并解码自定义属性中的URL字段
+		for key, value := range customProps {
+			if strValue, ok := value.(string); ok {
+				if strings.Contains(key, "url") || strings.Contains(key, "path") || strings.Contains(key, "link") {
+					decodedValue, err := url.QueryUnescape(strValue)
+					if err == nil && decodedValue != strValue {
+						log.Printf("自定义属性URL解码 [%s]: %s -> %s", key, strValue, decodedValue)
+						customProps[key] = decodedValue
+					}
+				}
+			}
+		}
 	}
 
 	// JSON字段转换
 	metadata := convertMapToString(req.Metadata)
-	customProps := convertMapToString(req.CustomProperties)
+	customPropsStr := convertMapToString(customProps)
 	deviceInfo := convertMapToString(req.DeviceInfo)
 
 	// 创建事件对象
@@ -68,40 +140,53 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		SessionID:        req.SessionID,
 		UserID:           req.UserID,
 		EventType:        req.EventType,
-		ElementPath:      req.ElementPath,
-		PagePath:         req.PagePath,
-		Referrer:         req.Referrer,
+		ElementPath:      elementPath,
+		PagePath:         pagePath,
+		Referrer:         referrer,
 		Metadata:         metadata,
 		UserAgent:        c.Request.UserAgent(),
 		IPAddress:        c.ClientIP(),
 		CreatedAt:        eventTime,
-		CustomProperties: customProps,
+		CustomProperties: customPropsStr,
 		Platform:         req.Platform,
 		DeviceInfo:       deviceInfo,
 		EventDuration:    req.EventDuration,
 	}
 
+	// 记录事件处理日志
+	log.Printf("事件处理完成: type=%s, path=%s, element=%s",
+		event.EventType, event.PagePath, event.ElementPath)
+
 	return event
 }
 
-// 将map转换为JSON字符串
+// 将map转换为JSON字符串，确保中文正确处理
 func convertMapToString(data map[string]interface{}) string {
 	if len(data) == 0 {
 		return `{}`
 	}
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
+	// 使用带有中文处理的JSON编码器
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false) // 防止中文被转义
+	if err := encoder.Encode(data); err != nil {
 		log.Printf("JSON序列化失败: %v", err)
 		return `{}`
 	}
 
-	return string(jsonData)
+	// 去除encoder自动添加的换行符
+	return strings.TrimSpace(buffer.String())
 }
 
 // TrackingMiddleware 跟踪中间件
 func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 确保UTF8编码
+		if err := ts.ensureUTF8Encoding(); err != nil {
+			log.Printf("设置UTF8编码失败: %v", err)
+		}
+
 		// 只对/api/tracking/batch端点进行特殊处理
 		if c.Request.URL.Path == "/api/tracking/batch" {
 			c.Next()
@@ -158,6 +243,11 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 
 // BatchTrackingHandler 处理批量埋点请求
 func (ts *TrackingService) BatchTrackingHandler(c *gin.Context) {
+	// 确保UTF8编码
+	if err := ts.ensureUTF8Encoding(); err != nil {
+		log.Printf("设置UTF8编码失败: %v", err)
+	}
+
 	var events []UnpartitionedTrackEventRequest
 	if err := c.ShouldBindJSON(&events); err != nil {
 		c.JSON(400, gin.H{"error": "Invalid request body"})
