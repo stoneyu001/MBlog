@@ -115,16 +115,14 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 
 	// 处理自定义属性中的URL
 	customProps := req.CustomProperties
-	if customProps != nil {
-		// 检查并解码自定义属性中的URL字段
-		for key, value := range customProps {
-			if strValue, ok := value.(string); ok {
-				if strings.Contains(key, "url") || strings.Contains(key, "path") || strings.Contains(key, "link") {
-					decodedValue, err := url.QueryUnescape(strValue)
-					if err == nil && decodedValue != strValue {
-						log.Printf("自定义属性URL解码 [%s]: %s -> %s", key, strValue, decodedValue)
-						customProps[key] = decodedValue
-					}
+	// 检查并解码自定义属性中的URL字段
+	for key, value := range customProps {
+		if strValue, ok := value.(string); ok {
+			if strings.Contains(key, "url") || strings.Contains(key, "path") || strings.Contains(key, "link") {
+				decodedValue, err := url.QueryUnescape(strValue)
+				if err == nil && decodedValue != strValue {
+					log.Printf("自定义属性URL解码 [%s]: %s -> %s", key, strValue, decodedValue)
+					customProps[key] = decodedValue
 				}
 			}
 		}
@@ -193,6 +191,12 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 过滤掉静态资源请求
+		if shouldSkipRequest(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
 		// 从请求头中获取设备指纹和会话ID
 		deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
 		sessionID := c.GetHeader("X-Session-ID")
@@ -209,6 +213,10 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			pagePath = decodedPagePath
 		}
 
+		// 获取请求方法和查询参数
+		method := c.Request.Method
+		query := c.Request.URL.RawQuery
+
 		// 对其他请求自动记录REQUEST事件
 		event := &UnpartitionedTrackEvent{
 			EventType:        "REQUEST",
@@ -216,9 +224,10 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			UserAgent:        c.Request.UserAgent(),
 			IPAddress:        c.ClientIP(),
 			CreatedAt:        time.Now().In(chinaLocation),
-			CustomProperties: `{"auto_tracked": true}`,
-			UserID:           deviceFingerprint, // 使用设备指纹作为user_id
-			SessionID:        sessionID,         // 使用会话ID
+			CustomProperties: createCustomProperties(method, query),
+			UserID:           deviceFingerprint,   // 使用设备指纹作为user_id
+			SessionID:        sessionID,           // 使用会话ID
+			Referrer:         c.Request.Referer(), // 添加来源页面
 		}
 
 		// 如果没有设备指纹，使用一个临时ID
@@ -233,12 +242,66 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			log.Printf("自动生成会话ID: %s", event.SessionID)
 		}
 
-		log.Printf("自动跟踪请求: path=%s, user_id=%s, session_id=%s",
-			event.PagePath, event.UserID, event.SessionID)
+		log.Printf("自动跟踪请求: method=%s, path=%s, query=%s, user_id=%s, session_id=%s",
+			method, event.PagePath, query, event.UserID, event.SessionID)
 
 		ts.TrackUnpartitionedEvent(event)
 		c.Next()
 	}
+}
+
+// 判断是否应该跳过该请求的跟踪
+func shouldSkipRequest(path string) bool {
+	// 静态资源后缀
+	staticExtensions := []string{
+		".js", ".css", ".png", ".jpg", ".jpeg", ".gif",
+		".svg", ".ico", ".woff", ".woff2", ".ttf", ".eot",
+	}
+
+	// 静态资源目录
+	staticDirs := []string{
+		"/static/", "/assets/", "/images/",
+		"/css/", "/js/", "/fonts/",
+	}
+
+	// 检查路径后缀
+	for _, ext := range staticExtensions {
+		if strings.HasSuffix(strings.ToLower(path), ext) {
+			return true
+		}
+	}
+
+	// 检查静态资源目录
+	for _, dir := range staticDirs {
+		if strings.HasPrefix(strings.ToLower(path), dir) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// 创建自定义属性
+func createCustomProperties(method string, query string) string {
+	props := map[string]interface{}{
+		"auto_tracked": true,
+		"method":       method,
+	}
+
+	// 如果有查询参数，添加到自定义属性（注意去除敏感信息）
+	if query != "" {
+		props["has_query"] = true
+		// 可以选择是否记录具体的查询参数
+		// props["query"] = query
+	}
+
+	jsonData, err := json.Marshal(props)
+	if err != nil {
+		log.Printf("JSON序列化失败: %v", err)
+		return `{"auto_tracked":true}`
+	}
+
+	return string(jsonData)
 }
 
 // BatchTrackingHandler 处理批量埋点请求

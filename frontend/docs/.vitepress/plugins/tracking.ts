@@ -360,10 +360,9 @@ export class Tracker {
   }
   
   // 页面访问埋点
-  public trackPageView(path: string, referrer?: string): void {
+  public trackPageView(path: string, referrer?: string, extraMetadata?: Record<string, any>): void {
     if (!isBrowser) return;
     
-    // 确保URL编码一致性
     const encodedPath = encodeURIComponent(path);
     const encodedReferrer = referrer ? encodeURIComponent(referrer) : '';
     
@@ -373,7 +372,8 @@ export class Tracker {
       referrer: encodedReferrer,
       metadata: {
         title: typeof document !== 'undefined' ? document.title : '',
-        url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : ''
+        url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '',
+        ...extraMetadata
       }
     });
   }
@@ -614,16 +614,13 @@ export function createTrackingPlugin(options: TrackingOptions) {
     tracker: null as Tracker | null,
     
     install(router: Router) {
-      // 只在浏览器环境下创建跟踪器
       if (!isBrowser) return;
       
-      // 创建跟踪器实例
       this.tracker = new Tracker(options);
       
       if (options.enableAutoTrack?.pageview) {
-        // 监听路由变化
+        // 1. 路由变化时触发
         router.onAfterRouteChanged = (to: any) => {
-          // 安全地获取当前和目标路由路径
           const toPath = typeof to === 'object' && to && 'path' in to ? String(to.path) : '';
           const fromPath = router.route && typeof router.route === 'object' && 'path' in router.route 
             ? String(router.route.path) 
@@ -634,7 +631,7 @@ export function createTrackingPlugin(options: TrackingOptions) {
           }
         };
         
-        // 初始页面访问
+        // 2. 初始页面加载时触发
         const currentPath = router.route && typeof router.route === 'object' && 'path' in router.route 
           ? String(router.route.path) 
           : '';
@@ -642,14 +639,51 @@ export function createTrackingPlugin(options: TrackingOptions) {
         if (this.tracker && currentPath) {
           this.tracker.trackPageView(currentPath);
         }
+
+        // 3. 添加 History API 监听
+        if (typeof window !== 'undefined') {
+          // 监听 popstate 事件（浏览器前进/后退）
+          window.addEventListener('popstate', () => {
+            if (this.tracker) {
+              this.tracker.trackPageView(window.location.pathname, document.referrer);
+            }
+          });
+
+          // 重写 pushState 和 replaceState
+          const originalPushState = history.pushState;
+          const originalReplaceState = history.replaceState;
+
+          history.pushState = function(...args) {
+            originalPushState.apply(this, args);
+            if (this.tracker) {
+              this.tracker.trackPageView(window.location.pathname, document.referrer);
+            }
+          };
+
+          history.replaceState = function(...args) {
+            originalReplaceState.apply(this, args);
+            if (this.tracker) {
+              this.tracker.trackPageView(window.location.pathname, document.referrer);
+            }
+          };
+        }
+
+        // 4. 添加可视性变化监听
+        if (typeof document !== 'undefined') {
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && this.tracker) {
+              this.tracker.trackPageView(window.location.pathname, document.referrer, {
+                visibility_change: true
+              });
+            }
+          });
+        }
       }
       
       if (options.enableAutoTrack?.click && this.tracker) {
-        // 设置点击跟踪
         this.tracker.setupClickTracking(router);
       }
       
-      // 添加到window对象，方便全局使用
       if (isBrowser) {
         (window as any).__tracker = this.tracker;
       }
