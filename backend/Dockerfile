@@ -18,11 +18,17 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o blog
 FROM docker.xuanyuan.me/library/alpine:latest
 # FROM alpine:latest
 
-# 设置时区为中国时区(修改方式确保正确链接)
+# 设置时区为中国时区
 ENV TZ=Asia/Shanghai
-RUN apk add --no-cache tzdata nodejs npm && \
+
+# 使用国内镜像源并安装必要的包
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache tzdata && \
+    apk add --no-cache nodejs npm && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    echo "Asia/Shanghai" > /etc/timezone
+    echo "Asia/Shanghai" > /etc/timezone && \
+    rm -rf /var/cache/apk/*
 
 WORKDIR /app
 

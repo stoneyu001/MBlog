@@ -174,14 +174,24 @@
             charts['visits-trend'].setOption(option);
         }
 
-        // 更新热门页面图表
+        // 更新热门页面图表 - 恢复横向柱状图
         function updateTopPages(data) {
             const option = {
-                title: { text: '热门页面' },
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                xAxis: { type: 'value' },
-                yAxis: { type: 'category', data: data.pages },
+                title: { text: '热门页面 (Top 5)' }, // 保留更新后的标题
+                tooltip: { // 保留更新后的tooltip
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        const param = params[0];
+                        return `${param.name}<br/>访问量: ${param.value}`;
+                    },
+                    axisPointer: { // 恢复阴影指示器
+                      type: 'shadow'
+                    }
+                },
+                xAxis: { type: 'value' }, // X轴改回数值型
+                yAxis: { type: 'category', data: data.pages }, // Y轴改回类目型，并绑定页面数据
                 series: [{
+                    name: '访问量', // 保留系列名称
                     type: 'bar',
                     data: data.visits
                 }]

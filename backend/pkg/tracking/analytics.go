@@ -3,7 +3,9 @@ package tracking
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -269,32 +271,98 @@ func (ts *TrackingService) getTopPages(startTime, endTime time.Time) (*TopPages,
 		Visits: make([]int, 0),
 	}
 
+	// 添加调试日志
+	log.Printf("查询热门页面，时间范围: %s 至 %s", startTime.Format("2006-01-02"), endTime.Format("2006-01-02"))
+
 	rows, err := ts.db.Query(`
-		SELECT page_path, COUNT(*) as visits
+		SELECT page_path, SUM(CASE 
+			WHEN event_type = 'PAGEVIEW' THEN 1 
+			WHEN event_type = 'CLICK' THEN 1 
+			ELSE 0 
+		END) as visits
 		FROM track_event
-		WHERE event_type = 'PAGEVIEW'
+		WHERE (event_type = 'PAGEVIEW' OR event_type = 'CLICK')
+		AND page_path != '/'
 		AND created_at BETWEEN $1 AND $2
 		GROUP BY page_path
 		ORDER BY visits DESC
-		LIMIT 10
+		LIMIT 5
 	`, startTime, endTime)
 	if err != nil {
+		log.Printf("热门页面查询错误: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
 
+	// 添加计数器，确认是否有数据返回
+	rowCount := 0
+
 	for rows.Next() {
-		var page string
+		var rawPath string
 		var visits int
-		if err := rows.Scan(&page, &visits); err != nil {
+		if err := rows.Scan(&rawPath, &visits); err != nil {
+			log.Printf("扫描热门页面结果错误: %v", err)
 			return nil, err
 		}
-		topPages.Pages = append(topPages.Pages, page)
+
+		rowCount++
+
+		// 路径处理逻辑
+		processedPath := processPagePath(rawPath)
+
+		// 添加调试日志，记录原始路径和处理后的路径
+		log.Printf("热门页面 #%d: 原始路径=%s, 处理后=%s, 访问量=%d",
+			rowCount, rawPath, processedPath, visits)
+
+		topPages.Pages = append(topPages.Pages, processedPath)
 		topPages.Visits = append(topPages.Visits, visits)
+	}
+
+	// 检查是否有数据返回
+	if rowCount == 0 {
+		log.Printf("警告: 热门页面查询没有返回任何结果!")
 	}
 
 	return topPages, nil
 }
+
+// processPagePath 处理页面路径，提取更友好的显示名称
+func processPagePath(rawPath string) string {
+	// 处理根路径
+	if rawPath == "/" {
+		return "首页"
+	}
+
+	// 分割路径并取最后部分
+	parts := strings.Split(rawPath, "/")
+	if len(parts) == 0 {
+		return "未知页面"
+	}
+
+	lastPart := parts[len(parts)-1]
+	if lastPart == "" && len(parts) > 1 {
+		lastPart = parts[len(parts)-2]
+	}
+
+	// 如果还是空，返回原始路径
+	if lastPart == "" {
+		return rawPath
+	}
+
+	// 移除文件扩展名
+	if strings.Contains(lastPart, ".") {
+		extParts := strings.Split(lastPart, ".")
+		if len(extParts) > 1 {
+			lastPart = strings.Join(extParts[:len(extParts)-1], ".")
+		}
+	}
+
+	// URL 解码（处理中文字符）
+	decoded, err := url.QueryUnescape(lastPart)
+	if err == nil {
+		lastPart = decoded
+	}
+
 
 // getVisitDuration 获取访问时长分布
 func (ts *TrackingService) getVisitDuration(startTime, endTime time.Time) ([]ChartData, error) {
