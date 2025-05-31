@@ -472,14 +472,15 @@ export class Tracker {
     
     const now = Date.now();
     
-    // 计算持续时间（毫秒）
+    // 计算持续时间（转换为秒）
     let event_duration = 0;
     if (this.pageEnterTime > 0) {
-      event_duration = Math.max(0, now - this.pageEnterTime);
+      const durationMs = Math.max(0, now - this.pageEnterTime);
+      event_duration = Math.floor(durationMs / 1000); // 转换为秒
       this.log(`页面停留时间计算:
         当前时间: ${now}
         进入时间: ${this.pageEnterTime}
-        停留时间: ${event_duration}ms (${event_duration / 1000}秒)
+        停留时间: ${durationMs}ms (${event_duration}秒)
       `);
     } else {
       this.log('页面首次加载，无法计算停留时间');
@@ -491,7 +492,7 @@ export class Tracker {
     
     // 获取平台信息
     const platform = this.getPlatformInfo();
-    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}ms, path=${encodedPath}`);
+    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}秒, path=${encodedPath}`);
     
     // 构建元数据，包含上一次的时间戳
     const metadata = {
@@ -499,7 +500,7 @@ export class Tracker {
       url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '',
       prev_timestamp: this.pageEnterTime,
       current_timestamp: now,
-      duration_ms: event_duration,
+      duration_ms: event_duration * 1000, // 保存毫秒值在metadata中，用于调试
       platform_info: platform,
       ...extraMetadata
     };
@@ -508,7 +509,7 @@ export class Tracker {
       event_type: TrackEventType.PAGEVIEW,
       page_path: encodedPath,
       referrer: encodedReferrer,
-      event_duration,
+      event_duration,  // 已经是秒
       platform,
       metadata
     });
@@ -673,20 +674,21 @@ export class Tracker {
     // 记录最后一个页面的访问时长
     if (this.pageEnterTime > 0) {
       const now = Date.now();
-      const lastPageDuration = now - this.pageEnterTime;
+      const lastPageDurationMs = now - this.pageEnterTime;
+      const lastPageDuration = Math.floor(lastPageDurationMs / 1000); // 转换为秒
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
       
       if (currentPath) {
-        this.log(`记录最后一个页面的停留时间: ${lastPageDuration}ms (${lastPageDuration / 1000}秒)`);
+        this.log(`记录最后一个页面的停留时间: ${lastPageDurationMs}ms (${lastPageDuration}秒)`);
         
         this.track({
           event_type: TrackEventType.PAGEVIEW,
           page_path: encodeURIComponent(currentPath),
-          event_duration: lastPageDuration,
+          event_duration: lastPageDuration,  // 已经是秒
           platform: this.getPlatformInfo(),
           metadata: {
             is_last_page: true,
-            duration_ms: lastPageDuration,
+            duration_ms: lastPageDurationMs,  // 保存毫秒值在metadata中，用于调试
             exit_timestamp: now
           }
         });

@@ -155,7 +155,7 @@
         function updateMetrics(metrics) {
             document.getElementById('total-visits').textContent = metrics.totalVisits.toLocaleString();
             document.getElementById('unique-visitors').textContent = metrics.uniqueVisitors.toLocaleString();
-            document.getElementById('avg-duration').textContent = formatDuration(metrics.avgDuration);
+            document.getElementById('avg-duration').textContent = metrics.avgDuration.toFixed(1) + '秒';
             document.getElementById('bounce-rate').textContent = metrics.bounceRate.toFixed(1) + '%';
         }
 
