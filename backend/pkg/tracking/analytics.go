@@ -174,9 +174,9 @@ func (ts *TrackingService) getMetrics(startTime, endTime time.Time) (*AnalyticsM
 		return nil, err
 	}
 
-	// 获取平均停留时间
+	// 获取平均停留时间（保留一位小数）
 	err = ts.db.QueryRow(`
-		SELECT COALESCE(AVG(event_duration), 0) 
+		SELECT ROUND(COALESCE(AVG(NULLIF(event_duration, 0)), 0)::numeric, 1)
 		FROM track_event 
 		WHERE event_duration > 0 
 		AND created_at BETWEEN $1 AND $2
@@ -442,53 +442,101 @@ func (ts *TrackingService) getUserPaths(startTime, endTime time.Time) (*UserPath
 		Links: make([]UserPathLink, 0),
 	}
 
-	// 获取所有页面作为节点
+	// 获取所有页面和点击事件作为节点
 	rows, err := ts.db.Query(`
-		SELECT page_path, COUNT(*) as visits
-		FROM track_event
-		WHERE event_type = 'PAGEVIEW'
-		AND created_at BETWEEN $1 AND $2
-		GROUP BY page_path
-		ORDER BY visits DESC
-		LIMIT 10
+		WITH event_counts AS (
+			SELECT 
+				event_type,
+				CASE 
+					WHEN event_type = 'CLICK' THEN element_path
+					ELSE page_path
+				END as path,
+				COUNT(*) as visits
+			FROM track_event
+			WHERE (event_type = 'PAGEVIEW' OR event_type = 'CLICK')
+			AND created_at BETWEEN $1 AND $2
+			GROUP BY 1, 2
+			HAVING COUNT(*) > 0
+			ORDER BY visits DESC
+			LIMIT 15
+		)
+		SELECT event_type, path, visits 
+		FROM event_counts
+		WHERE path IS NOT NULL AND path != ''
 	`, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	pageMap := make(map[string]bool)
+	// 记录节点映射，用于后续处理
+	nodeMap := make(map[string]bool)
 	for rows.Next() {
-		var page string
+		var eventType, path string
 		var visits int
-		if err := rows.Scan(&page, &visits); err != nil {
+		if err := rows.Scan(&eventType, &path, &visits); err != nil {
 			return nil, err
 		}
-		userPath.Nodes = append(userPath.Nodes, ChartData{Name: page, Value: visits})
-		pageMap[page] = true
+
+		// 处理节点名称
+		var nodeName string
+		if eventType == "CLICK" {
+			nodeName = "点击: " + path
+			if path == "" {
+				nodeName = "点击: 未知元素"
+			}
+		} else {
+			nodeName = processPagePath(path)
+		}
+
+		// 处理显示名称
+		displayName := nodeName
+		if len(displayName) > 30 {
+			displayName = displayName[:27] + "..."
+		}
+
+		userPath.Nodes = append(userPath.Nodes, ChartData{Name: displayName, Value: visits})
+		nodeMap[nodeName] = true
 	}
 
-	// 获取页面之间的转换关系
+	// 如果节点太少，不生成路径
+	if len(userPath.Nodes) < 2 {
+		return userPath, nil
+	}
+
+	// 获取事件之间的转换关系
 	rows, err = ts.db.Query(`
-		WITH page_sequences AS (
+		WITH event_sequence AS (
 			SELECT 
 				session_id,
-				page_path,
-				LEAD(page_path) OVER (PARTITION BY session_id ORDER BY created_at) as next_page
+				event_type,
+				CASE 
+					WHEN event_type = 'CLICK' THEN element_path
+					ELSE page_path
+				END as path,
+				created_at,
+				LEAD(event_type) OVER (PARTITION BY session_id ORDER BY created_at) as next_event_type,
+				LEAD(
+					CASE 
+						WHEN event_type = 'CLICK' THEN element_path
+						ELSE page_path
+					END
+				) OVER (PARTITION BY session_id ORDER BY created_at) as next_path
 			FROM track_event
-			WHERE event_type = 'PAGEVIEW'
+			WHERE (event_type = 'PAGEVIEW' OR event_type = 'CLICK')
 			AND created_at BETWEEN $1 AND $2
 		)
 		SELECT 
-			page_path as source,
-			next_page as target,
+			event_type, path,
+			next_event_type, next_path,
 			COUNT(*) as value
-		FROM page_sequences
-		WHERE next_page IS NOT NULL
-		GROUP BY source, target
-		HAVING COUNT(*) >= 5
+		FROM event_sequence
+		WHERE next_path IS NOT NULL
+		AND (event_type != next_event_type OR path != next_path)
+		GROUP BY 1, 2, 3, 4
+		HAVING COUNT(*) > 0
 		ORDER BY value DESC
-		LIMIT 20
+		LIMIT 30
 	`, startTime, endTime)
 	if err != nil {
 		return nil, err
@@ -496,13 +544,48 @@ func (ts *TrackingService) getUserPaths(startTime, endTime time.Time) (*UserPath
 	defer rows.Close()
 
 	for rows.Next() {
-		var link UserPathLink
-		if err := rows.Scan(&link.Source, &link.Target, &link.Value); err != nil {
+		var eventType, path, nextEventType, nextPath string
+		var value int
+		if err := rows.Scan(&eventType, &path, &nextEventType, &nextPath, &value); err != nil {
 			return nil, err
 		}
-		// 只添加在节点列表中的页面之间的连接
-		if pageMap[link.Source] && pageMap[link.Target] {
-			userPath.Links = append(userPath.Links, link)
+
+		// 处理源节点和目标节点名称
+		var source, target string
+		if eventType == "CLICK" {
+			source = "点击: " + path
+			if path == "" {
+				source = "点击: 未知元素"
+			}
+		} else {
+			source = processPagePath(path)
+		}
+
+		if nextEventType == "CLICK" {
+			target = "点击: " + nextPath
+			if nextPath == "" {
+				target = "点击: 未知元素"
+			}
+		} else {
+			target = processPagePath(nextPath)
+		}
+
+		// 只添加在节点列表中的连接
+		if nodeMap[source] && nodeMap[target] {
+			// 处理显示名称
+			displaySource := source
+			displayTarget := target
+			if len(displaySource) > 30 {
+				displaySource = displaySource[:27] + "..."
+			}
+			if len(displayTarget) > 30 {
+				displayTarget = displayTarget[:27] + "..."
+			}
+			userPath.Links = append(userPath.Links, UserPathLink{
+				Source: displaySource,
+				Target: displayTarget,
+				Value:  value,
+			})
 		}
 	}
 

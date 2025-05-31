@@ -155,7 +155,7 @@
         function updateMetrics(metrics) {
             document.getElementById('total-visits').textContent = metrics.totalVisits.toLocaleString();
             document.getElementById('unique-visitors').textContent = metrics.uniqueVisitors.toLocaleString();
-            document.getElementById('avg-duration').textContent = metrics.avgDuration.toFixed(1) + '秒';
+            document.getElementById('avg-duration').textContent = formatDuration(metrics.avgDuration);
             document.getElementById('bounce-rate').textContent = metrics.bounceRate.toFixed(1) + '%';
         }
 
@@ -325,9 +325,12 @@
 
         // 格式化时长
         function formatDuration(seconds) {
-            if (seconds < 60) return seconds + '秒';
+            if (seconds < 60) {
+                return seconds.toFixed(1) + '秒';
+            }
             const minutes = Math.floor(seconds / 60);
-            return minutes + '分' + (seconds % 60) + '秒';
+            const remainingSeconds = (seconds % 60).toFixed(1);
+            return minutes + '分' + remainingSeconds + '秒';
         }
 
         // 窗口大小改变时重绘图表
