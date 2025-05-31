@@ -362,7 +362,8 @@ func processPagePath(rawPath string) string {
 	if err == nil {
 		lastPart = decoded
 	}
-
+	return lastPart
+}
 
 // getVisitDuration 获取访问时长分布
 func (ts *TrackingService) getVisitDuration(startTime, endTime time.Time) ([]ChartData, error) {
