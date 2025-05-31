@@ -499,11 +499,6 @@ func (ts *TrackingService) getUserPaths(startTime, endTime time.Time) (*UserPath
 		nodeMap[nodeName] = true
 	}
 
-	// 如果节点太少，不生成路径
-	if len(userPath.Nodes) < 2 {
-		return userPath, nil
-	}
-
 	// 获取事件之间的转换关系
 	rows, err = ts.db.Query(`
 		WITH event_sequence AS (
@@ -588,6 +583,12 @@ func (ts *TrackingService) getUserPaths(startTime, endTime time.Time) (*UserPath
 			})
 		}
 	}
+
+	// 添加调试日志，打印生成的节点和连接
+	log.Printf("用户路径分析: 生成节点数量 = %d", len(userPath.Nodes))
+	log.Printf("用户路径分析: 生成连接数量 = %d", len(userPath.Links))
+	log.Printf("用户路径分析: 节点数据 = %+v", userPath.Nodes)
+	log.Printf("用户路径分析: 连接数据 = %+v", userPath.Links)
 
 	return userPath, nil
 }

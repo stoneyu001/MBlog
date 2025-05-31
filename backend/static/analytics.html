@@ -4,7 +4,7 @@
     <title>博客数据分析</title>
     <meta charset="UTF-8">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.6.0/echarts.common.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
     <style>
         body { max-width: 1200px; margin: 20px auto; padding: 20px; font-family: 'Microsoft YaHei', sans-serif; }
         h1, h2 { color: #333; }
@@ -99,27 +99,33 @@
     <script>
         // 图表实例对象
         let charts = {};
-        
-        // 显示加载状态
-        function showLoading() {
-            document.getElementById('loading').style.display = 'flex';
-        }
-
-        // 隐藏加载状态
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-        }
+        let chartsInitialized = false;
 
         // 初始化所有图表
         function initCharts() {
+            if (chartsInitialized) {
+                return;
+            }
+
             const chartIds = [
                 'visits-trend', 'top-pages', 'visit-duration',
                 'event-types', 'user-paths', 'platforms', 'browsers'
             ];
 
             chartIds.forEach(id => {
-                charts[id] = echarts.init(document.getElementById(id));
+                const dom = document.getElementById(id);
+                if (dom && !charts[id]) {
+                    charts[id] = echarts.init(dom, null, {
+                        renderer: 'canvas',
+                        useDirtyRect: true,
+                        pointerOptions: {
+                            passive: true
+                        }
+                    });
+                }
             });
+
+            chartsInitialized = true;
         }
 
         // 刷新所有数据
@@ -283,16 +289,53 @@
 
         // 更新用户路径图表
         function updateUserPaths(data) {
+            if (!data || !data.nodes || !data.links || data.nodes.length === 0) {
+                console.warn('用户路径数据为空或无效，跳过图表更新', data);
+                return;
+            }
+
+            // 确保节点名称唯一
+            const uniqueNodes = {};
+            const processedNodes = [];
+            data.nodes.forEach((node, index) => {
+                if (!uniqueNodes[node.name]) {
+                    uniqueNodes[node.name] = true;
+                    processedNodes.push({
+                        ...node,
+                        id: `node_${index}`
+                    });
+                }
+            });
+
             const option = {
                 title: { text: '用户路径分析' },
-                tooltip: { trigger: 'item' },
+                tooltip: { 
+                    trigger: 'item',
+                    formatter: '{b}: {c}'
+                },
                 series: [{
                     type: 'sankey',
-                    data: data.nodes,
-                    links: data.links
+                    layout: 'none',
+                    emphasis: {
+                        focus: 'adjacency'
+                    },
+                    data: processedNodes,
+                    links: data.links,
+                    lineStyle: {
+                        color: 'source',
+                        curveness: 0.5
+                    }
                 }]
             };
-            charts['user-paths'].setOption(option);
+
+            const chart = charts['user-paths'];
+            if (chart) {
+                try {
+                    chart.setOption(option, true);
+                } catch (error) {
+                    console.error('设置用户路径图表选项时出错:', error);
+                }
+            }
         }
 
         // 更新平台分布图表
@@ -333,16 +376,46 @@
             return minutes + '分' + remainingSeconds + '秒';
         }
 
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 确保 DOM 完全加载后再初始化图表
+        function ensureChartsInitialized() {
+            if (document.readyState === 'complete') {
+                initCharts();
+                refreshData();
+            } else {
+                window.addEventListener('load', () => {
+                    initCharts();
+                    refreshData();
+                });
+            }
+        }
+
         // 窗口大小改变时重绘图表
         window.addEventListener('resize', () => {
-            Object.values(charts).forEach(chart => chart.resize());
+            if (chartsInitialized) {
+                Object.values(charts).forEach(chart => {
+                    if (chart && chart.resize) {
+                        try {
+                            chart.resize();
+                        } catch (error) {
+                            console.error('重绘图表时出错:', error);
+                        }
+                    }
+                });
+            }
         });
 
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', () => {
-                initCharts();
-            refreshData();
-            });
+        // 初始化
+        ensureChartsInitialized();
     </script>
 </body>
 </html> 
