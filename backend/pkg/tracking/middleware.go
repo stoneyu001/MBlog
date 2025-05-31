@@ -69,9 +69,20 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	}
 
 	// 确保platform有值
-	if req.Platform == "" {
-		req.Platform = "unknown"
-		log.Printf("警告: 平台信息为空，使用默认值")
+	if req.Platform == "" || req.Platform == "unknown" {
+		// 从user_agent中提取平台信息
+		userAgent := c.Request.UserAgent()
+		platform, browser := extractPlatformFromUA(userAgent)
+		req.Platform = platform
+
+		// 将浏览器信息存储在metadata中
+		if req.Metadata == nil {
+			req.Metadata = make(map[string]interface{})
+		}
+		req.Metadata["browser"] = browser
+		req.Metadata["user_agent"] = userAgent
+
+		log.Printf("从UserAgent提取信息: platform=%s, browser=%s", platform, browser)
 	}
 
 	// 确保event_duration是非负数，如果为0则尝试计算
@@ -353,4 +364,43 @@ func (ts *TrackingService) BatchTrackingHandler(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"status": "success"})
+}
+
+// 修改辅助函数
+func extractPlatformFromUA(ua string) (platform, browser string) {
+	ua = strings.ToLower(ua)
+
+	// 检测操作系统
+	switch {
+	case strings.Contains(ua, "windows"):
+		platform = "Windows"
+	case strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os x"):
+		platform = "macOS"
+	case strings.Contains(ua, "linux"):
+		platform = "Linux"
+	case strings.Contains(ua, "android"):
+		platform = "Android"
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
+		platform = "iOS"
+	default:
+		platform = "Unknown"
+	}
+
+	// 检测浏览器（按优先级排序）
+	switch {
+	case strings.Contains(ua, "edg/") || strings.Contains(ua, "edge/"):
+		browser = "Edge"
+	case strings.Contains(ua, "chrome/") && !strings.Contains(ua, "edg/") && !strings.Contains(ua, "edge/"):
+		browser = "Chrome"
+	case strings.Contains(ua, "firefox/"):
+		browser = "Firefox"
+	case strings.Contains(ua, "safari/") && !strings.Contains(ua, "chrome/"):
+		browser = "Safari"
+	case strings.Contains(ua, "opera") || strings.Contains(ua, "opr/"):
+		browser = "Opera"
+	default:
+		browser = "Unknown"
+	}
+
+	return platform, browser
 }

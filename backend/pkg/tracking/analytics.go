@@ -546,11 +546,12 @@ func (ts *TrackingService) getBrowsers(startTime, endTime time.Time) ([]ChartDat
 		WITH browser_info AS (
 			SELECT 
 				CASE 
-					WHEN user_agent ILIKE '%Chrome%' THEN 'Chrome'
-					WHEN user_agent ILIKE '%Firefox%' THEN 'Firefox'
-					WHEN user_agent ILIKE '%Safari%' THEN 'Safari'
-					WHEN user_agent ILIKE '%Edge%' THEN 'Edge'
-					WHEN user_agent ILIKE '%MSIE%' OR user_agent ILIKE '%Trident%' THEN 'IE'
+					WHEN user_agent ILIKE '%edg/%' OR user_agent ILIKE '%edge/%' THEN 'Edge'
+					WHEN user_agent ILIKE '%chrome%' AND NOT (user_agent ILIKE '%edg/%' OR user_agent ILIKE '%edge/%') THEN 'Chrome'
+					WHEN user_agent ILIKE '%firefox%' THEN 'Firefox'
+					WHEN user_agent ILIKE '%safari%' AND NOT user_agent ILIKE '%chrome%' THEN 'Safari'
+					WHEN user_agent ILIKE '%opera%' OR user_agent ILIKE '%opr/%' THEN 'Opera'
+					WHEN user_agent ILIKE '%msie%' OR user_agent ILIKE '%trident%' THEN 'IE'
 					ELSE 'Other'
 				END as browser,
 				COUNT(*) as count

@@ -17,16 +17,23 @@ export enum TrackEventType {
 
 // 埋点事件接口
 export interface TrackEvent {
+  // 核心字段：事件类型和页面路径
+  event_type: TrackEventType | string;
+  page_path: string;
+  
+  // 会话相关字段（可选，由系统补充）
   session_id?: string;
   user_id?: string;
-  event_type: TrackEventType | string;
+  timestamp?: number;
+  
+  // 事件详细信息（可选）
   element_path?: string;
-  page_path: string;
   referrer?: string;
-  metadata?: Record<string, any>;
-  timestamp: number;
   platform?: string;
-  event_duration?: number;  // 添加事件持续时间字段
+  event_duration?: number;
+  
+  // 扩展信息
+  metadata?: Record<string, any>;
 }
 
 // 设备指纹和会话存储接口
@@ -313,112 +320,131 @@ export class Tracker {
     // 如果不在浏览器环境，不执行埋点
     if (!isBrowser) return;
     
-    // 更新会话活动时间
-    this.updateSessionActivity();
-    
-    // 采样判断
-    if (Math.random() > (this.options.sampling || 1)) {
-      this.log('事件因采样被丢弃', event);
-      return;
-    }
-    
-    // 排除路径判断
-    if (this.shouldExcludePath(event.page_path)) {
-      this.log('事件路径被排除', event);
-      return;
-    }
-    
-    // 获取平台信息
-    const platform = this.getPlatformInfo();
-    
-    // 确保使用最新的会话和设备信息
-    this.log(`构建事件数据: session_id=${this.session_id}, user_id=${this.device_fingerprint}`);
-    
-    const fullEvent: TrackEvent = {
-      session_id: this.session_id,
-      user_id: this.device_fingerprint, // 使用设备指纹作为user_id
-      timestamp: Date.now(),
-      platform, // 添加平台信息
-      ...event
-    };
-    
-    this.events.push(fullEvent);
-    this.log('事件已追踪', fullEvent);
-    
-    // 如果达到批处理大小，立即发送
-    if (this.events.length >= (this.options.batchSize || 10)) {
-      this.flush();
+    try {
+      // 更新会话活动时间
+      this.updateSessionActivity();
+      
+      // 采样判断
+      if (Math.random() > (this.options.sampling || 1)) {
+        this.log('事件因采样被丢弃', event);
+        return;
+      }
+      
+      // 排除路径判断
+      if (this.shouldExcludePath(event.page_path)) {
+        this.log('事件路径被排除', event);
+        return;
+      }
+      
+      // 获取平台信息
+      let platform = event.platform;
+      try {
+        if (!platform) {
+          platform = this.getPlatformInfo();
+          this.log('获取平台信息成功:', platform);
+        }
+      } catch (error) {
+        this.log('获取平台信息失败:', error);
+        platform = 'unknown';
+      }
+      
+      // 确保使用最新的会话和设备信息
+      this.log(`构建事件数据: session_id=${this.session_id}, user_id=${this.device_fingerprint}, platform=${platform}`);
+      
+      // 构建完整事件对象
+      const fullEvent: TrackEvent = {
+        // 基本事件信息
+        event_type: event.event_type,
+        page_path: event.page_path,
+        
+        // 会话信息
+        session_id: this.session_id,
+        user_id: this.device_fingerprint,
+        timestamp: Date.now(),
+        
+        // 可选字段
+        element_path: event.element_path,
+        referrer: event.referrer,
+        platform: platform,
+        event_duration: event.event_duration || 0,
+        
+        // 元数据
+        metadata: {
+          ...event.metadata,
+          platform_info: platform,  // 在元数据中也保存平台信息
+          client_timestamp: Date.now()  // 添加客户端时间戳
+        }
+      };
+      
+      this.events.push(fullEvent);
+      this.log('事件已追踪', fullEvent);
+      
+      // 如果达到批处理大小，立即发送
+      if (this.events.length >= (this.options.batchSize || 10)) {
+        this.flush();
+      }
+    } catch (error) {
+      // 即使发生错误，也尝试发送基本事件信息
+      this.log('事件处理发生错误，尝试发送基本信息:', error);
+      const basicEvent: TrackEvent = {
+        event_type: event.event_type,
+        page_path: event.page_path,
+        session_id: this.session_id,
+        user_id: this.device_fingerprint,
+        timestamp: Date.now(),
+        metadata: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          original_event: JSON.stringify(event)
+        }
+      };
+      this.events.push(basicEvent);
     }
   }
   
   // 获取平台信息
   private getPlatformInfo(): string {
-    if (!isBrowser) return 'unknown';
+    if (!isBrowser) return 'server-side';
     
     try {
       const ua = navigator.userAgent.toLowerCase();
       this.log('User Agent:', ua);
       
-      // 更详细的平台检测
-      let platform = 'unknown';
-      
-      // 移动设备检测
-      if (/(iphone|ipad|ipod)/.test(ua)) {
-        platform = 'iOS';
-      } else if (/android/.test(ua)) {
-        platform = 'Android';
-      } else if (/windows phone/.test(ua)) {
-        platform = 'Windows Phone';
-      }
-      // 桌面平台检测
-      else if (/win/.test(ua)) {
-        platform = 'Windows';
-        // 添加Windows版本检测
-        if (/windows nt 10/.test(ua)) platform = 'Windows 10';
-        else if (/windows nt 6.3/.test(ua)) platform = 'Windows 8.1';
-        else if (/windows nt 6.2/.test(ua)) platform = 'Windows 8';
-        else if (/windows nt 6.1/.test(ua)) platform = 'Windows 7';
-      } else if (/mac/.test(ua)) {
-        platform = 'MacOS';
-        // 添加 macOS 版本检测
-        if (/mac os x/.test(ua)) {
-          const version = ua.match(/mac os x (\d+[._]\d+)/);
-          if (version) platform = `MacOS ${version[1].replace('_', '.')}`;
-        }
+      // 基本操作系统检测
+      let os = 'unknown';
+      if (/windows/.test(ua)) {
+        os = 'Windows';
+      } else if (/macintosh|mac os x/.test(ua)) {
+        os = 'macOS';
       } else if (/linux/.test(ua)) {
-        platform = 'Linux';
-        // 添加Linux发行版检测
-        if (/ubuntu/.test(ua)) platform = 'Ubuntu';
-        else if (/fedora/.test(ua)) platform = 'Fedora';
-        else if (/debian/.test(ua)) platform = 'Debian';
-      } else if (/cros/.test(ua)) {
-        platform = 'ChromeOS';
+        os = 'Linux';
+      } else if (/android/.test(ua)) {
+        os = 'Android';
+      } else if (/iphone|ipad|ipod/.test(ua)) {
+        os = 'iOS';
       }
       
-      // 添加浏览器信息
+      // 基本浏览器检测（按优先级排序）
       let browser = 'unknown';
-      if (/edg\/|edge\//.test(ua)) browser = 'Edge';
-      else if (/chrome\//.test(ua) && !/edg\/|edge\//.test(ua)) browser = 'Chrome';
-      else if (/firefox\//.test(ua)) browser = 'Firefox';
-      else if (/safari\//.test(ua) && !/chrome\//.test(ua)) browser = 'Safari';
-      else if (/opera|opr\//.test(ua)) browser = 'Opera';
-      
-      // 尝试获取浏览器版本
-      let version = '';
-      const versionMatch = ua.match(/(edge|edg|chrome|firefox|safari|opera|opr)[\/]([\d.]+)/);
-      if (versionMatch) {
-        version = versionMatch[2];
-        browser = `${browser} ${version}`;
+      if (/edg\/|edge\//.test(ua)) {
+        browser = 'Edge';
+      } else if (/chrome\//.test(ua) && !/edg\/|edge\//.test(ua)) {
+        browser = 'Chrome';
+      } else if (/firefox\//.test(ua)) {
+        browser = 'Firefox';
+      } else if (/safari\//.test(ua) && !/chrome\//.test(ua)) {
+        browser = 'Safari';
+      } else if (/opera|opr\//.test(ua)) {
+        browser = 'Opera';
       }
       
-      this.log(`检测到的平台: ${platform}, 浏览器: ${browser}`);
-      
-      // 返回平台和浏览器的组合信息
-      return `${platform}/${browser}`;
+      // 返回简单的平台信息
+      const platformInfo = `${os}/${browser}`;
+      this.log(`检测到的平台信息: OS=${os}, Browser=${browser}`);
+      return platformInfo;
       
     } catch (error) {
       this.log('平台检测出错:', error);
-      return 'unknown';
+      return 'unknown/unknown';
     }
   }
   
@@ -465,6 +491,7 @@ export class Tracker {
     
     // 获取平台信息
     const platform = this.getPlatformInfo();
+    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}ms, path=${encodedPath}`);
     
     // 构建元数据，包含上一次的时间戳
     const metadata = {
@@ -472,21 +499,18 @@ export class Tracker {
       url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '',
       prev_timestamp: this.pageEnterTime,
       current_timestamp: now,
-      duration_ms: event_duration
+      duration_ms: event_duration,
+      platform_info: platform,
+      ...extraMetadata
     };
-    
-    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}ms, path=${encodedPath}`);
     
     this.track({
       event_type: TrackEventType.PAGEVIEW,
       page_path: encodedPath,
       referrer: encodedReferrer,
-      event_duration, // 单位：毫秒
+      event_duration,
       platform,
-      metadata: {
-        ...metadata,
-        ...extraMetadata
-      }
+      metadata
     });
   }
   
@@ -498,16 +522,22 @@ export class Tracker {
     const encodedPath = encodeURIComponent(path);
     const encodedElementPath = encodeURIComponent(element_path);
     
+    // 获取平台信息
+    const platform = this.getPlatformInfo();
+    
     this.track({
       event_type: TrackEventType.CLICK,
       page_path: encodedPath,
       element_path: encodedElementPath,
+      platform,
+      event_duration: 0,
       metadata: {
         text: element.textContent?.trim().substring(0, 50) || '',
         tagName: element.tagName.toLowerCase(),
         className: element.className,
         id: element.id,
-        href: element.tagName.toLowerCase() === 'a' ? encodeURIComponent((element as HTMLAnchorElement).href || '') : undefined
+        href: element.tagName.toLowerCase() === 'a' ? encodeURIComponent((element as HTMLAnchorElement).href || '') : undefined,
+        platform_info: platform
       }
     });
   }
@@ -571,8 +601,12 @@ export class Tracker {
   private async sendEvents(events: TrackEvent[]): Promise<void> {
     // 确保所有URL相关字段都已正确编码
     const processedEvents = events.map(event => {
-      // 确保platform存在
-      const platform = event.platform || this.getPlatformInfo();
+      // 确保platform存在且不为unknown
+      let platform = event.platform;
+      if (!platform || platform === 'unknown') {
+        platform = this.getPlatformInfo();
+        this.log('重新获取平台信息:', platform);
+      }
       
       // 确保event_duration是数字类型
       const event_duration = typeof event.event_duration === 'number' ? event.event_duration : 0;
@@ -588,8 +622,9 @@ export class Tracker {
         referrer: event.referrer,
         metadata: event.metadata ? {
           ...event.metadata,
-          url: event.metadata.url ? encodeURIComponent(event.metadata.url) : undefined
-        } : undefined
+          url: event.metadata.url ? encodeURIComponent(event.metadata.url) : undefined,
+          platform_detail: platform  // 添加详细的平台信息到元数据中
+        } : { platform_detail: platform }
       };
     });
     
