@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
+	"math"
 	"net/url"
 	"strings"
 	"time"
@@ -65,6 +66,35 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	if req.EventType == "" {
 		req.EventType = "UNKNOWN"
 		log.Printf("警告: 事件类型为空，使用默认值")
+	}
+
+	// 确保platform有值
+	if req.Platform == "" {
+		req.Platform = "unknown"
+		log.Printf("警告: 平台信息为空，使用默认值")
+	}
+
+	// 确保event_duration是非负数，如果为0则尝试计算
+	if req.EventDuration <= 0 {
+		// 从元数据中获取上一个事件的时间戳
+		var prevTimestamp int64
+		if req.Metadata != nil {
+			if ts, ok := req.Metadata["prev_timestamp"].(float64); ok {
+				prevTimestamp = int64(ts)
+			}
+		}
+
+		// 如果有上一个事件的时间戳，计算持续时间
+		if prevTimestamp > 0 && req.Timestamp > prevTimestamp {
+			durationMs := req.Timestamp - prevTimestamp
+			// 将毫秒转换为秒，并限制最大值为1小时（3600秒）
+			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
+			log.Printf("计算得到事件持续时间: %d秒 (从时间戳差值: %d毫秒)",
+				req.EventDuration, durationMs)
+		} else {
+			req.EventDuration = 0
+			log.Printf("无法计算事件持续时间，使用默认值0")
+		}
 	}
 
 	// 统一处理所有URL相关字段的解码
@@ -152,8 +182,8 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	}
 
 	// 记录事件处理日志
-	log.Printf("事件处理完成: type=%s, path=%s, element=%s",
-		event.EventType, event.PagePath, event.ElementPath)
+	log.Printf("事件处理完成: type=%s, path=%s, platform=%s, duration=%d",
+		event.EventType, event.PagePath, event.Platform, event.EventDuration)
 
 	return event
 }

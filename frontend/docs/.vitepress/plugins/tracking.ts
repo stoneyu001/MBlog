@@ -25,6 +25,8 @@ export interface TrackEvent {
   referrer?: string;
   metadata?: Record<string, any>;
   timestamp: number;
+  platform?: string;
+  event_duration?: number;  // 添加事件持续时间字段
 }
 
 // 设备指纹和会话存储接口
@@ -153,6 +155,7 @@ export class Tracker {
   private device_fingerprint: string;
   private readonly SESSION_STORAGE_KEY = 'track_session_data';
   private readonly FINGERPRINT_STORAGE_KEY = 'track_device_fingerprint';
+  private pageEnterTime: number = 0;
   
   constructor(options: TrackingOptions) {
     // 默认配置
@@ -325,6 +328,9 @@ export class Tracker {
       return;
     }
     
+    // 获取平台信息
+    const platform = this.getPlatformInfo();
+    
     // 确保使用最新的会话和设备信息
     this.log(`构建事件数据: session_id=${this.session_id}, user_id=${this.device_fingerprint}`);
     
@@ -332,6 +338,7 @@ export class Tracker {
       session_id: this.session_id,
       user_id: this.device_fingerprint, // 使用设备指纹作为user_id
       timestamp: Date.now(),
+      platform, // 添加平台信息
       ...event
     };
     
@@ -341,6 +348,77 @@ export class Tracker {
     // 如果达到批处理大小，立即发送
     if (this.events.length >= (this.options.batchSize || 10)) {
       this.flush();
+    }
+  }
+  
+  // 获取平台信息
+  private getPlatformInfo(): string {
+    if (!isBrowser) return 'unknown';
+    
+    try {
+      const ua = navigator.userAgent.toLowerCase();
+      this.log('User Agent:', ua);
+      
+      // 更详细的平台检测
+      let platform = 'unknown';
+      
+      // 移动设备检测
+      if (/(iphone|ipad|ipod)/.test(ua)) {
+        platform = 'iOS';
+      } else if (/android/.test(ua)) {
+        platform = 'Android';
+      } else if (/windows phone/.test(ua)) {
+        platform = 'Windows Phone';
+      }
+      // 桌面平台检测
+      else if (/win/.test(ua)) {
+        platform = 'Windows';
+        // 添加Windows版本检测
+        if (/windows nt 10/.test(ua)) platform = 'Windows 10';
+        else if (/windows nt 6.3/.test(ua)) platform = 'Windows 8.1';
+        else if (/windows nt 6.2/.test(ua)) platform = 'Windows 8';
+        else if (/windows nt 6.1/.test(ua)) platform = 'Windows 7';
+      } else if (/mac/.test(ua)) {
+        platform = 'MacOS';
+        // 添加 macOS 版本检测
+        if (/mac os x/.test(ua)) {
+          const version = ua.match(/mac os x (\d+[._]\d+)/);
+          if (version) platform = `MacOS ${version[1].replace('_', '.')}`;
+        }
+      } else if (/linux/.test(ua)) {
+        platform = 'Linux';
+        // 添加Linux发行版检测
+        if (/ubuntu/.test(ua)) platform = 'Ubuntu';
+        else if (/fedora/.test(ua)) platform = 'Fedora';
+        else if (/debian/.test(ua)) platform = 'Debian';
+      } else if (/cros/.test(ua)) {
+        platform = 'ChromeOS';
+      }
+      
+      // 添加浏览器信息
+      let browser = 'unknown';
+      if (/edg\/|edge\//.test(ua)) browser = 'Edge';
+      else if (/chrome\//.test(ua) && !/edg\/|edge\//.test(ua)) browser = 'Chrome';
+      else if (/firefox\//.test(ua)) browser = 'Firefox';
+      else if (/safari\//.test(ua) && !/chrome\//.test(ua)) browser = 'Safari';
+      else if (/opera|opr\//.test(ua)) browser = 'Opera';
+      
+      // 尝试获取浏览器版本
+      let version = '';
+      const versionMatch = ua.match(/(edge|edg|chrome|firefox|safari|opera|opr)[\/]([\d.]+)/);
+      if (versionMatch) {
+        version = versionMatch[2];
+        browser = `${browser} ${version}`;
+      }
+      
+      this.log(`检测到的平台: ${platform}, 浏览器: ${browser}`);
+      
+      // 返回平台和浏览器的组合信息
+      return `${platform}/${browser}`;
+      
+    } catch (error) {
+      this.log('平台检测出错:', error);
+      return 'unknown';
     }
   }
   
@@ -366,13 +444,47 @@ export class Tracker {
     const encodedPath = encodeURIComponent(path);
     const encodedReferrer = referrer ? encodeURIComponent(referrer) : '';
     
+    const now = Date.now();
+    
+    // 计算持续时间（毫秒）
+    let event_duration = 0;
+    if (this.pageEnterTime > 0) {
+      event_duration = Math.max(0, now - this.pageEnterTime);
+      this.log(`页面停留时间计算:
+        当前时间: ${now}
+        进入时间: ${this.pageEnterTime}
+        停留时间: ${event_duration}ms (${event_duration / 1000}秒)
+      `);
+    } else {
+      this.log('页面首次加载，无法计算停留时间');
+    }
+    
+    // 更新页面进入时间
+    this.pageEnterTime = now;
+    this.log(`更新页面进入时间: ${this.pageEnterTime}`);
+    
+    // 获取平台信息
+    const platform = this.getPlatformInfo();
+    
+    // 构建元数据，包含上一次的时间戳
+    const metadata = {
+      title: typeof document !== 'undefined' ? document.title : '',
+      url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '',
+      prev_timestamp: this.pageEnterTime,
+      current_timestamp: now,
+      duration_ms: event_duration
+    };
+    
+    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}ms, path=${encodedPath}`);
+    
     this.track({
       event_type: TrackEventType.PAGEVIEW,
       page_path: encodedPath,
       referrer: encodedReferrer,
+      event_duration, // 单位：毫秒
+      platform,
       metadata: {
-        title: typeof document !== 'undefined' ? document.title : '',
-        url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '',
+        ...metadata,
         ...extraMetadata
       }
     });
@@ -458,16 +570,28 @@ export class Tracker {
   // 发送事件到服务器
   private async sendEvents(events: TrackEvent[]): Promise<void> {
     // 确保所有URL相关字段都已正确编码
-    const processedEvents = events.map(event => ({
-      ...event,
-      page_path: event.page_path, // 已在track方法中编码
-      element_path: event.element_path, // 已在track方法中编码
-      referrer: event.referrer, // 已在track方法中编码
-      metadata: event.metadata ? {
-        ...event.metadata,
-        url: event.metadata.url ? encodeURIComponent(event.metadata.url) : undefined
-      } : undefined
-    }));
+    const processedEvents = events.map(event => {
+      // 确保platform存在
+      const platform = event.platform || this.getPlatformInfo();
+      
+      // 确保event_duration是数字类型
+      const event_duration = typeof event.event_duration === 'number' ? event.event_duration : 0;
+      
+      this.log(`处理事件: type=${event.event_type}, duration=${event_duration}ms, platform=${platform}`);
+      
+      return {
+        ...event,
+        platform,
+        event_duration,
+        page_path: event.page_path,
+        element_path: event.element_path,
+        referrer: event.referrer,
+        metadata: event.metadata ? {
+          ...event.metadata,
+          url: event.metadata.url ? encodeURIComponent(event.metadata.url) : undefined
+        } : undefined
+      };
+    });
     
     this.log('发送数据:', processedEvents);
     
@@ -510,6 +634,29 @@ export class Tracker {
   // 停止定时器
   public dispose(): void {
     if (!isBrowser) return;
+    
+    // 记录最后一个页面的访问时长
+    if (this.pageEnterTime > 0) {
+      const now = Date.now();
+      const lastPageDuration = now - this.pageEnterTime;
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      
+      if (currentPath) {
+        this.log(`记录最后一个页面的停留时间: ${lastPageDuration}ms (${lastPageDuration / 1000}秒)`);
+        
+        this.track({
+          event_type: TrackEventType.PAGEVIEW,
+          page_path: encodeURIComponent(currentPath),
+          event_duration: lastPageDuration,
+          platform: this.getPlatformInfo(),
+          metadata: {
+            is_last_page: true,
+            duration_ms: lastPageDuration,
+            exit_timestamp: now
+          }
+        });
+      }
+    }
     
     if (this.timer) {
       clearInterval(this.timer);

@@ -111,78 +111,43 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 
 	// 处理每个事件
 	for i, eventMap := range eventsArray {
-		// 详细记录每个事件的原始数据，特别是user_id
+		// 详细记录每个事件的原始数据
 		log.Printf("事件[%d]原始数据: %+v", i, eventMap)
 
-		// 特别检查user_id字段
-		if userID, exists := eventMap["user_id"]; exists {
-			log.Printf("事件[%d]包含user_id: %v (类型: %T)", i, userID, userID)
-		} else if userID, exists := eventMap["userId"]; exists {
-			log.Printf("事件[%d]包含userId(驼峰): %v (类型: %T)", i, userID, userID)
+		// 特别检查platform和event_duration字段
+		if platform, exists := eventMap["platform"]; exists {
+			log.Printf("事件[%d]包含platform: %v (类型: %T)", i, platform, platform)
 		} else {
-			log.Printf("警告: 事件[%d]不包含user_id或userId字段", i)
+			log.Printf("警告: 事件[%d]不包含platform字段", i)
 		}
 
-		// 从map中提取字段，同时尝试下划线命名和驼峰命名
-		eventType := getStringWithFallback(eventMap, "event_type", "eventType")
-		if eventType == "" {
-			eventType = "UNKNOWN"
-			log.Printf("警告: 事件类型为空，使用默认值: %s", eventType)
+		if duration, exists := eventMap["event_duration"]; exists {
+			log.Printf("事件[%d]包含event_duration: %v (类型: %T)", i, duration, duration)
+		} else {
+			log.Printf("警告: 事件[%d]不包含event_duration字段", i)
 		}
 
 		// 构建请求结构体
 		req := UnpartitionedTrackEventRequest{
-			EventType:   eventType,
-			SessionID:   getStringWithFallback(eventMap, "session_id", "sessionId"),
-			UserID:      getStringWithFallback(eventMap, "user_id", "userId"),
-			ElementPath: getStringWithFallback(eventMap, "element_path", "elementPath"),
-			PagePath:    getStringWithFallback(eventMap, "page_path", "pagePath"),
-			Referrer:    getStringWithFallback(eventMap, "referrer", "referrer"),
-			Timestamp:   getInt64WithFallback(eventMap, "timestamp", "timestamp"),
+			EventType:     getStringWithFallback(eventMap, "event_type", "eventType"),
+			SessionID:     getStringWithFallback(eventMap, "session_id", "sessionId"),
+			UserID:        getStringWithFallback(eventMap, "user_id", "userId"),
+			ElementPath:   getStringWithFallback(eventMap, "element_path", "elementPath"),
+			PagePath:      getStringWithFallback(eventMap, "page_path", "pagePath"),
+			Referrer:      getStringWithFallback(eventMap, "referrer", "referrer"),
+			Timestamp:     getInt64WithFallback(eventMap, "timestamp", "timestamp"),
+			Platform:      getStringWithFallback(eventMap, "platform", "platform"),
+			EventDuration: getIntWithFallback(eventMap, "event_duration", "eventDuration"),
 		}
-
-		// 检查转换后的user_id
-		log.Printf("事件[%d]转换后的UserID: %s", i, req.UserID)
-
-		// 处理metadata
-		metadata, ok := eventMap["metadata"].(map[string]interface{})
-		if !ok {
-			// 尝试驼峰命名
-			metadata, _ = eventMap["metaData"].(map[string]interface{})
-		}
-		if metadata != nil {
-			req.Metadata = metadata
-		}
-
-		// 处理其他复杂字段
-		customProps, ok := eventMap["custom_properties"].(map[string]interface{})
-		if !ok {
-			// 尝试驼峰命名
-			customProps, _ = eventMap["customProperties"].(map[string]interface{})
-		}
-		if customProps != nil {
-			req.CustomProperties = customProps
-		}
-
-		deviceInfo, ok := eventMap["device_info"].(map[string]interface{})
-		if !ok {
-			// 尝试驼峰命名
-			deviceInfo, _ = eventMap["deviceInfo"].(map[string]interface{})
-		}
-		if deviceInfo != nil {
-			req.DeviceInfo = deviceInfo
-		}
-
-		// 处理平台和事件持续时间
-		req.Platform = getStringWithFallback(eventMap, "platform", "platform")
-		req.EventDuration = getIntWithFallback(eventMap, "event_duration", "eventDuration")
 
 		// 打印请求内容以调试
-		log.Printf("处理事件: %+v", req)
+		log.Printf("处理事件: platform=%s, event_duration=%d, type=%s, path=%s",
+			req.Platform, req.EventDuration, req.EventType, req.PagePath)
 
 		// 转换为事件对象并发送
 		event := convertToUnpartitionedTrackEvent(req, c)
-		log.Printf("转换后的事件对象: UserID=%s, SessionID=%s", event.UserID, event.SessionID)
+		log.Printf("转换后的事件对象: platform=%s, event_duration=%d",
+			event.Platform, event.EventDuration)
 		ts.TrackUnpartitionedEvent(event)
 		validEvents++
 	}
