@@ -175,29 +175,82 @@
             charts['visits-trend'].setOption(option);
         }
 
-        // 更新热门页面图表 - 恢复横向柱状图
+        // 更新热门页面图表
         function updateTopPages(data) {
             const option = {
-                title: { text: '热门页面 (Top 5)' }, // 保留更新后的标题
-                tooltip: { // 保留更新后的tooltip
+                title: { text: '热门页面 (Top 5)' },
+                tooltip: {
                     trigger: 'axis',
                     formatter: function(params) {
                         const param = params[0];
-                        return `${param.name}<br/>访问量: ${param.value}`;
+                        // 在tooltip中显示完整的页面名称
+                        return `${data.pages[param.dataIndex]}<br/>访问量: ${param.value}`;
                     },
-                    axisPointer: { // 恢复阴影指示器
-                      type: 'shadow'
+                    axisPointer: {
+                        type: 'shadow'
                     }
                 },
-                xAxis: { type: 'value' }, // X轴改回数值型
-                yAxis: { type: 'category', data: data.pages }, // Y轴改回类目型，并绑定页面数据
+                grid: {
+                    left: '3%',     // 减小左边距
+                    right: '5%',    // 减小右边距
+                    bottom: '3%',   // 减小底部边距
+                    top: '15%',     // 减小顶部边距
+                    containLabel: true  // 确保标签在图表区域内
+                },
+                xAxis: { type: 'value' },
+                yAxis: {
+                    type: 'category',
+                    data: data.pages,
+                    axisLabel: {
+                        formatter: function(value) {
+                            // 计算字符长度（中文算2个字符，英文算1个字符）
+                            let len = 0;
+                            let displayLen = 0;
+                            for(let i = 0; i < value.length; i++) {
+                                if(value.charCodeAt(i) > 127) {
+                                    len += 2;
+                                } else {
+                                    len += 1;
+                                }
+                                if(len <= 8) { // 允许4个中文字符（8个字符长度）
+                                    displayLen = i + 1;
+                                }
+                            }
+                            if(displayLen < value.length) {
+                                return value.substring(0, displayLen) + '...';
+                            }
+                            return value;
+                        },
+                        show: true,
+                        interval: 0
+                    }
+                },
                 series: [{
-                    name: '访问量', // 保留系列名称
+                    name: '访问量',
                     type: 'bar',
-                    data: data.visits
+                    data: data.visits,
+                    label: {
+                        show: true,
+                        position: 'right',
+                        formatter: '{c}'
+                    }
                 }]
             };
             charts['top-pages'].setOption(option);
+
+            // 添加鼠标悬停事件，显示完整文本
+            charts['top-pages'].getZr().on('mousemove', function(params) {
+                const pointInPixel = [params.offsetX, params.offsetY];
+                const pointInGrid = charts['top-pages'].convertFromPixel({seriesIndex: 0}, pointInPixel);
+                if (pointInGrid) {
+                    const dataIndex = Math.floor(pointInGrid[1]);
+                    if (dataIndex >= 0 && dataIndex < data.pages.length) {
+                        charts['top-pages'].setTooltip({
+                            formatter: data.pages[dataIndex]
+                        });
+                    }
+                }
+            });
         }
 
         // 更新访问时长分布图表
