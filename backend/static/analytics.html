@@ -102,7 +102,7 @@
         let chartsInitialized = false;
 
         // 初始化所有图表
-        function initCharts() {
+        async function initCharts() {
             if (chartsInitialized) {
                 return;
             }
@@ -112,48 +112,143 @@
                 'event-types', 'user-paths', 'platforms', 'browsers'
             ];
 
+            // 为每个图表容器添加加载动画
             chartIds.forEach(id => {
                 const dom = document.getElementById(id);
-                if (dom && !charts[id]) {
-                    charts[id] = echarts.init(dom, null, {
-                        renderer: 'canvas',
-                        useDirtyRect: true,
-                        pointerOptions: {
-                            passive: true
-                        }
-                    });
+                if (dom) {
+                    dom.innerHTML = `
+                        <div class="chart-loading" style="height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            <div class="loading-spinner" style="width: 30px; height: 30px; margin-bottom: 10px;"></div>
+                            <div>图表加载中...</div>
+                        </div>
+                    `;
                 }
             });
 
+            // 异步初始化图表
+            await Promise.all(chartIds.map(async (id) => {
+                const dom = document.getElementById(id);
+                if (dom && !charts[id]) {
+                    try {
+                        charts[id] = echarts.init(dom, null, {
+                            renderer: 'canvas',
+                            useDirtyRect: true
+                        });
+                    } catch (error) {
+                        console.error(`初始化图表 ${id} 失败:`, error);
+                        dom.innerHTML = `
+                            <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ff4d4f;">
+                                <div>图表加载失败，请刷新页面重试</div>
+                            </div>
+                        `;
+                    }
+                }
+            }));
+
             chartsInitialized = true;
+            window.addEventListener('resize', debounce(handleResize, 250));
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
 
         // 刷新所有数据
         async function refreshData() {
-            showLoading();
             const timeRange = document.getElementById('time-range').value;
             
             try {
                 // 获取统计数据
                 const response = await fetch(`/api/tracking/analytics?days=${timeRange}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
                 
-                // 更新核心指标
+                // 异步更新各个图表
+                await initCharts(); // 确保图表已初始化
+
+                // 立即更新核心指标
                 updateMetrics(data.metrics);
-                
-                // 更新各个图表
-                updateVisitsTrend(data.visitsTrend);
-                updateTopPages(data.topPages);
-                updateVisitDuration(data.visitDuration);
-                updateEventTypes(data.eventTypes);
-                updateUserPaths(data.userPaths);
-                updatePlatforms(data.platforms);
-                updateBrowsers(data.browsers);
+
+                // 异步更新各个图表
+                const updateTasks = [
+                    updateChart('visits-trend', () => updateVisitsTrend(data.visitsTrend)),
+                    updateChart('top-pages', () => updateTopPages(data.topPages)),
+                    updateChart('visit-duration', () => updateVisitDuration(data.visitDuration)),
+                    updateChart('event-types', () => updateEventTypes(data.eventTypes)),
+                    updateChart('user-paths', () => updateUserPaths(data.userPaths)),
+                    updateChart('platforms', () => updatePlatforms(data.platforms)),
+                    updateChart('browsers', () => updateBrowsers(data.browsers))
+                ];
+
+                await Promise.all(updateTasks);
+
             } catch (error) {
                 console.error('获取数据失败:', error);
-                alert('获取数据失败，请稍后重试');
-            } finally {
-                hideLoading();
+                const errorMessage = error.message.includes('HTTP error') 
+                    ? '服务器响应错误，请稍后重试'
+                    : '获取数据失败，请检查网络连接';
+                alert(errorMessage);
+            }
+        }
+
+        // 异步更新单个图表
+        async function updateChart(chartId, updateFunction) {
+            const chart = charts[chartId];
+            if (!chart) return;
+
+            try {
+                showChartLoading(chartId);
+                await new Promise(resolve => setTimeout(resolve, 0)); // 让出主线程
+                updateFunction();
+                hideChartLoading(chartId);
+            } catch (error) {
+                console.error(`更新图表 ${chartId} 失败:`, error);
+                const dom = document.getElementById(chartId);
+                if (dom) {
+                    dom.innerHTML = `
+                        <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ff4d4f;">
+                            <div>图表更新失败，请刷新重试</div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // 显示图表加载状态
+        function showChartLoading(chartId) {
+            const chart = charts[chartId];
+            if (chart) {
+                chart.showLoading({
+                    text: '加载中...',
+                    color: '#4CAF50',
+                    textColor: '#000',
+                    maskColor: 'rgba(255, 255, 255, 0.8)',
+                    zlevel: 0,
+                    fontSize: 14,
+                    showSpinner: true,
+                    spinnerRadius: 10,
+                    lineWidth: 5,
+                    fontWeight: 'normal'
+                });
+            }
+        }
+
+        // 隐藏图表加载状态
+        function hideChartLoading(chartId) {
+            const chart = charts[chartId];
+            if (chart) {
+                chart.hideLoading();
             }
         }
 
@@ -193,7 +288,7 @@
                         return `${data.pages[param.dataIndex]}<br/>访问量: ${param.value}`;
                     },
                     axisPointer: {
-                        type: 'shadow'
+                      type: 'shadow'
                     }
                 },
                 grid: {
@@ -294,36 +389,163 @@
                 return;
             }
 
-            // 确保节点名称唯一
-            const uniqueNodes = {};
-            const processedNodes = [];
-            data.nodes.forEach((node, index) => {
-                if (!uniqueNodes[node.name]) {
-                    uniqueNodes[node.name] = true;
-                    processedNodes.push({
-                        ...node,
-                        id: `node_${index}`
-                    });
+            // 处理节点名称，使其更简洁易读
+            function processNodeName(node) {
+                if (node.name === '首页') return node.name;
+                if (node.name.startsWith('点击:')) {
+                    const path = node.name.substring(4).trim();
+                    if (path.includes('VPButton')) return '按钮点击';
+                    if (path.includes('VPDocFooter')) return '页脚点击';
+                    if (path.includes('VPDocAside')) return '侧边栏点击';
+                    if (path.includes('container')) return '容器点击';
+                    if (path.includes('items')) return '列表项点击';
+                    return '页面点击';
                 }
+                return node.name;
+            }
+
+            // 创建节点连接图
+            const connectionMap = new Map();
+            data.links.forEach(link => {
+                const source = processNodeName({name: link.source});
+                const target = processNodeName({name: link.target});
+                
+                if (!connectionMap.has(source)) {
+                    connectionMap.set(source, new Set());
+                }
+                if (!connectionMap.has(target)) {
+                    connectionMap.set(target, new Set());
+                }
+                
+                connectionMap.get(source).add(target);
+                connectionMap.get(target).add(source);
             });
 
+            // 找出所有连接的节点
+            const connectedNodes = new Set();
+            function findConnectedNodes(node, visited = new Set()) {
+                if (visited.has(node)) return;
+                visited.add(node);
+                connectedNodes.add(node);
+                
+                const connections = connectionMap.get(node) || new Set();
+                for (const connected of connections) {
+                    findConnectedNodes(connected, visited);
+                }
+            }
+
+            // 从首页开始遍历
+            findConnectedNodes('首页');
+
+            // 处理节点数据，只保留有连接的节点
+            const processedNodes = data.nodes
+                .map((node, index) => ({
+                    id: index.toString(),
+                    name: processNodeName(node),
+                    value: node.value,
+                }))
+                .filter(node => connectedNodes.has(node.name));
+
+            // 创建节点名称到ID的映射
+            const nodeNameToId = new Map(
+                processedNodes.map(node => [node.name, node.id])
+            );
+
+            // 处理连接数据，只保留有效连接
+            const processedLinks = data.links
+                .map(link => {
+                    const sourceName = processNodeName({name: link.source});
+                    const targetName = processNodeName({name: link.target});
+                    
+                    if (!connectedNodes.has(sourceName) || !connectedNodes.has(targetName)) {
+                        return null;
+                    }
+
+                    return {
+                        source: nodeNameToId.get(sourceName),
+                        target: nodeNameToId.get(targetName),
+                        value: link.value,
+                        lineStyle: {
+                            width: Math.log(link.value + 1) * 2, // 使用对数缩放使线条宽度更合理
+                            opacity: 0.6,
+                            curveness: 0.3
+                        }
+                    };
+                })
+                .filter(link => link !== null);
+
+            // 计算节点大小和类别
+            processedNodes.forEach(node => {
+                // 计算节点的总连接值
+                const totalValue = processedLinks
+                    .filter(link => link.source === node.id || link.target === node.id)
+                    .reduce((sum, link) => sum + link.value, 0);
+
+                // 设置节点样式
+                node.symbolSize = Math.max(20, Math.log(totalValue + 1) * 10);
+                node.itemStyle = {
+                    color: node.name === '首页' ? '#ff7875' : '#4CAF50',
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    shadowColor: 'rgba(0, 0, 0, 0.2)',
+                    shadowBlur: 10
+                };
+                
+                // 设置标签样式
+                node.label = {
+                    show: true,
+                    position: 'right',
+                    formatter: '{b}',
+                    fontSize: 12,
+                    color: '#333'
+                };
+            });
+
+            // 配置有向图图表
             const option = {
-                title: { text: '用户路径分析' },
-                tooltip: { 
+                title: {
+                    text: '用户路径分析',
+                    left: 'center',
+                    top: 10
+                },
+                tooltip: {
                     trigger: 'item',
-                    formatter: '{b}: {c}'
+                    formatter: function(params) {
+                        if (params.dataType === 'node') {
+                            return `${params.data.name}<br/>总流量: ${params.data.value}`;
+                        }
+                        const sourceName = processedNodes.find(n => n.id === params.data.source)?.name;
+                        const targetName = processedNodes.find(n => n.id === params.data.target)?.name;
+                        return `${sourceName} → ${targetName}<br/>流量: ${params.data.value}`;
+                    }
                 },
                 series: [{
-                    type: 'sankey',
-                    layout: 'none',
-                    emphasis: {
-                        focus: 'adjacency'
-                    },
+                    type: 'graph',
+                    layout: 'force',
                     data: processedNodes,
-                    links: data.links,
+                    links: processedLinks,
+                    roam: true,
+                    draggable: true,
+                    force: {
+                        repulsion: 1500,
+                        gravity: 0.1,
+                        edgeLength: 200,
+                        layoutAnimation: true
+                    },
+                    edgeSymbol: ['circle', 'arrow'],
+                    edgeSymbolSize: [4, 10],
+                    emphasis: {
+                        focus: 'adjacency',
+                        lineStyle: {
+                            width: 10
+                        }
+                    },
                     lineStyle: {
-                        color: 'source',
-                        curveness: 0.5
+                        color: '#999',
+                        opacity: 0.6,
+                        width: 1,
+                        curveness: 0.3,
+                        type: 'solid'
                     }
                 }]
             };
@@ -331,7 +553,9 @@
             const chart = charts['user-paths'];
             if (chart) {
                 try {
+                    chart.clear();
                     chart.setOption(option, true);
+                    console.log('用户路径图表更新成功');
                 } catch (error) {
                     console.error('设置用户路径图表选项时出错:', error);
                 }
@@ -386,36 +610,23 @@
             document.getElementById('loading').style.display = 'none';
         }
 
-        // 确保 DOM 完全加载后再初始化图表
-        function ensureChartsInitialized() {
-            if (document.readyState === 'complete') {
-                initCharts();
-                refreshData();
-            } else {
-                window.addEventListener('load', () => {
-                    initCharts();
-                    refreshData();
-                });
-            }
+        // 处理窗口大小变化
+        function handleResize() {
+            Object.values(charts).forEach(chart => {
+                if (chart && typeof chart.resize === 'function') {
+                    try {
+                        chart.resize();
+                    } catch (error) {
+                        console.warn('图表重置大小失败:', error);
+                    }
+                }
+            });
         }
 
-        // 窗口大小改变时重绘图表
-        window.addEventListener('resize', () => {
-            if (chartsInitialized) {
-                Object.values(charts).forEach(chart => {
-                    if (chart && chart.resize) {
-                        try {
-                            chart.resize();
-                        } catch (error) {
-                            console.error('重绘图表时出错:', error);
-                        }
-                    }
-                });
-            }
+        // 在页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            refreshData();
         });
-
-        // 初始化
-        ensureChartsInitialized();
     </script>
 </body>
 </html> 
