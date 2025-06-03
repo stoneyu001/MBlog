@@ -78,39 +78,36 @@ func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 // 处理批量不分区埋点事件
 func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	// 解析原始JSON
-	var batchRequest struct {
-		Events []map[string]interface{} `json:"events"`
-	}
+	var events []map[string]interface{}
 
 	body, _ := c.GetRawData()
 	log.Printf("接收到原始批量请求数据: %s", string(body))
 
-	if err := json.Unmarshal(body, &batchRequest); err != nil {
+	if err := json.Unmarshal(body, &events); err != nil {
 		log.Printf("解析JSON失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
 	}
 
-	eventsArray := batchRequest.Events
-	log.Printf("解析后的events数组: %+v", eventsArray)
+	log.Printf("解析后的events数组: %+v", events)
 
-	if len(eventsArray) == 0 {
+	if len(events) == 0 {
 		log.Printf("警告: 批量请求为空")
 		c.JSON(http.StatusOK, gin.H{"status": "success", "processed": 0})
 		return
 	}
 
-	if len(eventsArray) > 200 {
+	if len(events) > 200 {
 		log.Printf("警告: 批量请求超过200个事件，将只处理前200个")
-		eventsArray = eventsArray[:200]
+		events = events[:200]
 	}
 
-	log.Printf("收到批量请求，事件数量: %d", len(eventsArray))
+	log.Printf("收到批量请求，事件数量: %d", len(events))
 	validEvents := 0
 	invalidEvents := 0
 
 	// 处理每个事件
-	for i, eventMap := range eventsArray {
+	for i, eventMap := range events {
 		// 详细记录每个事件的原始数据
 		log.Printf("事件[%d]原始数据: %+v", i, eventMap)
 
