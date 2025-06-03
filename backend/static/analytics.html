@@ -394,12 +394,17 @@
                 if (node.name === '首页') return node.name;
                 if (node.name.startsWith('点击:')) {
                     const path = node.name.substring(4).trim();
-                    if (path.includes('VPButton')) return '按钮点击';
-                    if (path.includes('VPDocFooter')) return '页脚点击';
-                    if (path.includes('VPDocAside')) return '侧边栏点击';
-                    if (path.includes('container')) return '容器点击';
-                    if (path.includes('items')) return '列表项点击';
-                    return '页面点击';
+                    if (path.includes('VPButton')) return '导航按钮';
+                    if (path.includes('VPDocFooter')) return '页面底部';
+                    if (path.includes('VPDocAside')) return '侧边导航';
+                    if (path.includes('VPNavScreen')) return '移动导航';
+                    if (path.includes('VPNavBarMenu')) return '顶部导航';
+                    if (path.includes('main')) return '主内容区';
+                    if (path.includes('article')) return '文章内容';
+                    if (path.includes('link') || path.includes('a:')) return '链接点击';
+                    if (path.includes('container')) return '内容区域';
+                    if (path.includes('items')) return '列表项';
+                    return '其他点击';
                 }
                 return node.name;
             }
@@ -437,21 +442,29 @@
             // 从首页开始遍历
             findConnectedNodes('首页');
 
-            // 处理节点数据，只保留有连接的节点
-            const processedNodes = data.nodes
-                .map((node, index) => ({
-                    id: index.toString(),
-                    name: processNodeName(node),
-                    value: node.value,
-                }))
+            // 处理节点数据，合并相同名称的节点
+            const nodeMap = new Map(); // 用于存储合并后的节点
+            data.nodes.forEach((node, index) => {
+                const processedName = processNodeName(node);
+                if (nodeMap.has(processedName)) {
+                    // 如果节点已存在，累加其值
+                    const existingNode = nodeMap.get(processedName);
+                    existingNode.value += node.value;
+                } else {
+                    // 如果节点不存在，创建新节点
+                    nodeMap.set(processedName, {
+                        id: processedName, // 使用处理后的名称作为ID
+                        name: processedName,
+                        value: node.value
+                    });
+                }
+            });
+
+            // 将Map转换为数组
+            const processedNodes = Array.from(nodeMap.values())
                 .filter(node => connectedNodes.has(node.name));
 
-            // 创建节点名称到ID的映射
-            const nodeNameToId = new Map(
-                processedNodes.map(node => [node.name, node.id])
-            );
-
-            // 处理连接数据，只保留有效连接
+            // 更新连接数据，使用节点名称作为标识
             const processedLinks = data.links
                 .map(link => {
                     const sourceName = processNodeName({name: link.source});
@@ -462,11 +475,11 @@
                     }
 
                     return {
-                        source: nodeNameToId.get(sourceName),
-                        target: nodeNameToId.get(targetName),
+                        source: sourceName, // 直接使用节点名称
+                        target: targetName,
                         value: link.value,
                         lineStyle: {
-                            width: Math.log(link.value + 1) * 2, // 使用对数缩放使线条宽度更合理
+                            width: Math.log(link.value + 1) * 2,
                             opacity: 0.6,
                             curveness: 0.3
                         }
@@ -474,11 +487,29 @@
                 })
                 .filter(link => link !== null);
 
+            // 合并相同路径的连接
+            const linkMap = new Map();
+            processedLinks.forEach(link => {
+                const linkKey = `${link.source}->${link.target}`;
+                if (linkMap.has(linkKey)) {
+                    // 如果连接已存在，累加其值
+                    const existingLink = linkMap.get(linkKey);
+                    existingLink.value += link.value;
+                    existingLink.lineStyle.width = Math.log(existingLink.value + 1) * 2;
+                } else {
+                    // 如果连接不存在，添加新连接
+                    linkMap.set(linkKey, link);
+                }
+            });
+
+            // 将连接Map转换为数组
+            const mergedLinks = Array.from(linkMap.values());
+
             // 计算节点大小和类别
             processedNodes.forEach(node => {
                 // 计算节点的总连接值
-                const totalValue = processedLinks
-                    .filter(link => link.source === node.id || link.target === node.id)
+                const totalValue = mergedLinks
+                    .filter(link => link.source === node.name || link.target === node.name)
                     .reduce((sum, link) => sum + link.value, 0);
 
                 // 设置节点样式
@@ -504,9 +535,7 @@
             // 配置有向图图表
             const option = {
                 title: {
-                    text: '用户路径分析',
-                    left: 'center',
-                    top: 10
+                    text: '用户路径分析'
                 },
                 tooltip: {
                     trigger: 'item',
@@ -514,16 +543,14 @@
                         if (params.dataType === 'node') {
                             return `${params.data.name}<br/>总流量: ${params.data.value}`;
                         }
-                        const sourceName = processedNodes.find(n => n.id === params.data.source)?.name;
-                        const targetName = processedNodes.find(n => n.id === params.data.target)?.name;
-                        return `${sourceName} → ${targetName}<br/>流量: ${params.data.value}`;
+                        return `${params.data.source} → ${params.data.target}<br/>流量: ${params.data.value}`;
                     }
                 },
                 series: [{
                     type: 'graph',
                     layout: 'force',
                     data: processedNodes,
-                    links: processedLinks,
+                    links: mergedLinks,
                     roam: true,
                     draggable: true,
                     force: {
