@@ -28,6 +28,10 @@ export default defineConfig({
   description: "share and learn",
   lastUpdated: true,
   
+  head: [
+    ['link', { rel: 'icon', href: '/logo.png' }]
+  ],
+  
   // 添加自动标签提取和其他元数据处理
   transformPageData(pageData: PageData & { relativePath?: string }, ctx: TransformPageContext) {
     // 检查是否是文章页面（跳过索引页和其他特殊页面）
