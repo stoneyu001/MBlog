@@ -162,5 +162,17 @@ export default defineConfig({
     },
     //当前页面 On this page
     outlineTitle: "页面导航",
+    // 返回顶部 Return to top
+    returnToTopLabel: "返回顶部",
+    // 菜单  Menu
+    sidebarMenuLabel: "菜单",
+    //头上角要主题切换的文字 Appearance
+    darkModeSwitchLabel: "切换主题",
+    //左上角logo
+    logo: '/logo.png',
+    // 添加版权信息和页脚
+    footer: {
+      copyright: '© 2024-2025 StoneYu Blog.'
+    }
   }
 })

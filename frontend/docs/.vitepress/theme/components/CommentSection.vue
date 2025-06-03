@@ -391,14 +391,20 @@ async function submitReply() {
 
 // 格式化日期
 function formatDate(dateStr) {
-  const date = new Date(dateStr);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  try {
+    // 移除末尾的Z并替换T为空格
+    const localTimeStr = dateStr.replace('Z', '').replace('T', ' ');
+    
+    // 直接从字符串中提取时间部分
+    const [datePart, timePart] = localTimeStr.split(' ');
+    const [hours, minutes] = timePart.split(':');
+    
+    // 只返回到分钟的格式
+    return `${datePart} ${hours}:${minutes}`;
+  } catch (error) {
+    console.error('格式化日期出错:', error);
+    return dateStr;
+  }
 }
 
 // 组件挂载时加载评论和用户信息

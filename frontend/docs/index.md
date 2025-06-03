@@ -6,6 +6,9 @@ hero:
   name: "StoneYu Blog"
   text: "Share and Learn"
   tagline: 
+  image:
+    src: /logo.png
+    alt: VitePress
   actions:
     - theme: brand
       text: 💻技术栈志
