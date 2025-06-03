@@ -23,6 +23,7 @@ function getArticles(articlesPath: string) {
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  lang: 'zh-CN',
   title: "StoneYu Blog",
   description: "share and learn",
   lastUpdated: true,
@@ -88,8 +89,11 @@ export default defineConfig({
   
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    lastUpdated: {
+      text: '最后更新于'
+    },
     nav: [
-      { text: 'Home', link: '/' },
+      { text: '主页', link: '/' },
       { text: '🍵生活拾撷', link: '/life/🍵生活拾撷' },
       { text: '💻技术栈志', link: '/tech/💻技术栈志' }
     ],
@@ -151,6 +155,12 @@ export default defineConfig({
     },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/stoneyu001/MBlog' }
-    ]
+    ],
+    docFooter: {
+      prev: "上一页", //Next page
+      next: "下一页", //Previous page
+    },
+    //当前页面 On this page
+    outlineTitle: "页面导航",
   }
 })
