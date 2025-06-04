@@ -150,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vitepress';
 import { saveCommentUser, getCommentUser } from './CommentStorage';
 
@@ -407,12 +407,17 @@ function formatDate(dateStr) {
   }
 }
 
+// 监听路由变化
+watch(() => route.path, () => {
+  console.log('路由发生变化，重新加载评论');
+  loadComments();
+}, { immediate: true });
+
 // 组件挂载时加载评论和用户信息
 onMounted(() => {
   loadUserInfo();
   console.log('组件已挂载，当前路径:', route.path);
   console.log('处理后的文章ID:', articleId.value);
-  loadComments();
 });
 </script>
 
