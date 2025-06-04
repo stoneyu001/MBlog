@@ -4,9 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	// 导入评论系统包
@@ -26,13 +24,6 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
-}
-
-type Article struct {
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"created_at"`
 }
 
 // 文件操作请求结构
@@ -120,49 +111,6 @@ func main() {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
-	// 旧的文章路由（保留用于兼容）
-	r.POST("/articles", func(c *gin.Context) {
-		var article Article
-		if err := c.ShouldBindJSON(&article); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		err := db.QueryRow(
-			"INSERT INTO articles(title, content) VALUES($1, $2) RETURNING id",
-			article.Title, article.Content,
-		).Scan(&article.ID)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
-			return
-		}
-
-		c.JSON(http.StatusCreated, article)
-	})
-
-	// 文章列表API（保留用于兼容）
-	r.GET("/api/articles", func(c *gin.Context) {
-		rows, err := db.Query("SELECT id, title, created_at FROM articles")
-		if err != nil {
-			c.JSON(500, gin.H{"error": "查询失败"})
-			return
-		}
-		defer rows.Close()
-
-		var articles []Article
-		for rows.Next() {
-			var a Article
-			if err := rows.Scan(&a.ID, &a.Title, &a.CreatedAt); err != nil {
-				c.JSON(500, gin.H{"error": "数据扫描失败"})
-				return
-			}
-			articles = append(articles, a)
-		}
-
-		c.JSON(200, articles)
-	})
-
 	// 文件管理相关API
 	// 1. 获取所有文件
 	r.GET("/api/files", func(c *gin.Context) {
@@ -227,22 +175,6 @@ func main() {
 			log.Printf("处理后的文件路径: %s", filename)
 		}
 
-		// 获取当前工作目录
-		wd, err := os.Getwd()
-		if err == nil {
-			log.Printf("当前工作目录: %s", wd)
-		}
-
-		// 检查文件是否存在
-		for _, dir := range filemanager.ArticlesDirs {
-			fullPath := filepath.Join(dir, filename)
-			if _, err := os.Stat(fullPath); err == nil {
-				log.Printf("文件存在于路径: %s", fullPath)
-			} else {
-				log.Printf("文件在路径 %s 中不存在: %v", fullPath, err)
-			}
-		}
-
 		// 尝试删除文件
 		if err := filemanager.DeleteFile(filename); err != nil {
 			log.Printf("删除文件失败: %v", err)
@@ -275,19 +207,4 @@ func main() {
 
 	// 启动服务
 	r.Run(":3000")
-}
-
-// 获取当前工作目录
-func getWorkingDir() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return err.Error()
-	}
-	return dir
-}
-
-// 检查文件是否存在
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
 }
