@@ -27,7 +27,6 @@ export default defineConfig({
   title: "StoneYu Blog",
   description: "share and learn",
   lastUpdated: true,
-  titleTemplate: ':title | StoneYu Blog',
   
   head: [
     ['link', { rel: 'icon', href: '/logo.png' }]
@@ -101,12 +100,6 @@ export default defineConfig({
     outline: {
       level: 'deep',
       label: '页面导航'
-    },
-    // 显示文章标题
-    titleTemplate: ':title',
-    pageTitle: {
-      home: false,
-      article: true
     },
     nav: [
       { text: '主页', link: '/' },
