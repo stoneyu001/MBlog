@@ -598,11 +598,20 @@ func (ts *TrackingService) getPlatforms(startTime, endTime time.Time) ([]ChartDa
 	var result []ChartData
 
 	rows, err := ts.db.Query(`
-		SELECT platform, COUNT(*) as count
-		FROM track_event
-		WHERE created_at BETWEEN $1 AND $2
-		AND platform IS NOT NULL
-		GROUP BY platform
+		WITH platform_stats AS (
+			SELECT 
+				CASE 
+					WHEN platform LIKE '%Windows%' THEN 'Windows'
+					ELSE platform 
+				END as platform,
+				COUNT(*) as count
+			FROM track_event
+			WHERE created_at BETWEEN $1 AND $2
+			AND platform IS NOT NULL
+			GROUP BY 1
+		)
+		SELECT platform, count
+		FROM platform_stats
 		ORDER BY count DESC
 	`, startTime, endTime)
 	if err != nil {

@@ -153,17 +153,47 @@ func DeleteFile(filename string) error {
 	// 清理文件名，防止目录遍历攻击
 	filename = filepath.Clean(filename)
 	if strings.Contains(filename, "..") {
+		log.Printf("检测到非法的文件路径: %s", filename)
 		return fmt.Errorf("无效的文件名")
 	}
 
-	// 尝试在所有目录中删除文件
-	for _, dir := range ArticlesDirs {
-		fullPath := filepath.Join(dir, filename)
-		if err := os.Remove(fullPath); err == nil {
-			return nil
-		}
+	log.Printf("准备删除文件，清理后的路径: %s", filename)
+
+	// 处理文件路径
+	// 1. 移除可能存在的 /app/frontend/docs/ 前缀
+	filename = strings.TrimPrefix(filename, "/app/frontend/docs/")
+
+	// 2. 确定文件类别（tech 或 life）
+	var targetDir string
+	if strings.HasPrefix(filename, "tech/") {
+		targetDir = ArticlesDirs[0]
+		filename = strings.TrimPrefix(filename, "tech/")
+	} else if strings.HasPrefix(filename, "life/") {
+		targetDir = ArticlesDirs[1]
+		filename = strings.TrimPrefix(filename, "life/")
+	} else {
+		// 如果没有前缀，默认为tech目录
+		targetDir = ArticlesDirs[0]
 	}
-	return fmt.Errorf("文件不存在或无法删除")
+
+	// 构建完整的文件路径
+	fullPath := filepath.Join(targetDir, filename)
+	log.Printf("尝试删除文件: %s", fullPath)
+
+	// 检查文件是否存在
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		log.Printf("文件不存在: %s", fullPath)
+		return fmt.Errorf("文件不存在: %s", filename)
+	}
+
+	// 尝试删除文件
+	if err := os.Remove(fullPath); err != nil {
+		log.Printf("删除文件失败: %v", err)
+		return fmt.Errorf("删除失败: %v", err)
+	}
+
+	log.Printf("文件删除成功: %s", fullPath)
+	return nil
 }
 
 // 更新侧边栏配置
@@ -218,21 +248,36 @@ func UpdateSidebarConfig() error {
 
 // 构建站点
 func BuildSite() error {
-	// 切换到前端目录
-	cmd := exec.Command("cd", "/app/frontend")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("切换到前端目录失败: %v", err)
-	}
-
-	// 安装依赖
+	// 创建一个新的命令，设置工作目录
 	installCmd := exec.Command("npm", "install")
 	installCmd.Dir = "/app/frontend"
+
+	// 设置命令的输出
+	var installOutput strings.Builder
+	installCmd.Stdout = &installOutput
+	installCmd.Stderr = &installOutput
+
+	// 执行安装命令
 	if err := installCmd.Run(); err != nil {
+		log.Printf("npm install 失败: %v\n输出: %s", err, installOutput.String())
 		return fmt.Errorf("安装依赖失败: %v", err)
 	}
 
-	// 执行构建
+	// 创建构建命令
 	buildCmd := exec.Command("npm", "run", "build")
 	buildCmd.Dir = "/app/frontend"
-	return buildCmd.Run()
+
+	// 设置命令的输出
+	var buildOutput strings.Builder
+	buildCmd.Stdout = &buildOutput
+	buildCmd.Stderr = &buildOutput
+
+	// 执行构建命令
+	if err := buildCmd.Run(); err != nil {
+		log.Printf("npm run build 失败: %v\n输出: %s", err, buildOutput.String())
+		return fmt.Errorf("构建失败: %v", err)
+	}
+
+	log.Printf("站点构建成功")
+	return nil
 }

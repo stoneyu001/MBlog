@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	// 导入评论系统包
@@ -216,10 +217,36 @@ func main() {
 	})
 
 	// 4. 删除文件
-	r.DELETE("/api/files/:filename", func(c *gin.Context) {
+	r.DELETE("/api/files/*filename", func(c *gin.Context) {
 		filename := c.Param("filename")
+		log.Printf("收到删除文件请求，原始路径: %s", filename)
+
+		// 移除路径参数前面的斜杠
+		if len(filename) > 0 && filename[0] == '/' {
+			filename = filename[1:]
+			log.Printf("处理后的文件路径: %s", filename)
+		}
+
+		// 获取当前工作目录
+		wd, err := os.Getwd()
+		if err == nil {
+			log.Printf("当前工作目录: %s", wd)
+		}
+
+		// 检查文件是否存在
+		for _, dir := range filemanager.ArticlesDirs {
+			fullPath := filepath.Join(dir, filename)
+			if _, err := os.Stat(fullPath); err == nil {
+				log.Printf("文件存在于路径: %s", fullPath)
+			} else {
+				log.Printf("文件在路径 %s 中不存在: %v", fullPath, err)
+			}
+		}
+
+		// 尝试删除文件
 		if err := filemanager.DeleteFile(filename); err != nil {
-			c.JSON(500, gin.H{"error": "删除失败"})
+			log.Printf("删除文件失败: %v", err)
+			c.JSON(500, gin.H{"error": fmt.Sprintf("删除失败: %v", err)})
 			return
 		}
 
@@ -228,6 +255,7 @@ func main() {
 			log.Printf("更新侧边栏配置失败: %v", err)
 		}
 
+		log.Printf("文件删除成功: %s", filename)
 		c.JSON(200, gin.H{"status": "success"})
 	})
 
