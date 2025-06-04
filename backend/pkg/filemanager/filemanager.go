@@ -130,17 +130,41 @@ func SaveFile(filename string, content string) error {
 		filename = filename + ".md"
 	}
 
-	// 根据文件名前缀决定保存目录
-	var targetDir string
-	if strings.HasPrefix(filename, "tech/") {
-		targetDir = ArticlesDirs[0] // tech目录
-	} else if strings.HasPrefix(filename, "life/") {
-		targetDir = ArticlesDirs[1] // life目录
-	} else {
-		targetDir = ArticlesDirs[0] // 默认保存到tech目录
+	// 从文件名生成标题（去掉目录前缀）
+	baseFilename := filepath.Base(filename)
+	title := strings.TrimSuffix(baseFilename, ".md")
+	title = strings.TrimSuffix(title, ".markdown")
+
+	// 检查内容是否已经包含frontmatter
+	if !strings.HasPrefix(content, "---") {
+		// 添加frontmatter，使用VitePress标准格式
+		frontmatter := fmt.Sprintf(`---
+title: %s
+---
+
+# %s
+
+`, title, title)
+		content = frontmatter + content
 	}
 
-	fullPath := filepath.Join(targetDir, filename)
+	// 确定目标目录和文件名
+	var targetDir string
+	targetFilename := filename
+
+	// 如果文件名已经包含tech/或life/前缀，直接使用对应目录
+	if strings.HasPrefix(filename, "tech/") {
+		targetDir = ArticlesDirs[0]
+		targetFilename = strings.TrimPrefix(filename, "tech/")
+	} else if strings.HasPrefix(filename, "life/") {
+		targetDir = ArticlesDirs[1]
+		targetFilename = strings.TrimPrefix(filename, "life/")
+	} else {
+		// 如果没有前缀，默认保存到tech目录
+		targetDir = ArticlesDirs[0]
+	}
+
+	fullPath := filepath.Join(targetDir, targetFilename)
 	// 确保目标目录存在
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return err
