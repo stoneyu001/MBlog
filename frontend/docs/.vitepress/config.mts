@@ -96,6 +96,11 @@ export default defineConfig({
     lastUpdated: {
       text: '最后更新于'
     },
+    // 配置大纲显示
+    outline: {
+      level: 'deep',
+      label: '页面导航'
+    },
     nav: [
       { text: '主页', link: '/' },
       { text: '🍵生活拾撷', link: '/life/🍵生活拾撷' },
