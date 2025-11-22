@@ -1,0 +1,146 @@
+MBlog 项目部署和使用说明
+
+1. 技术栈版本
+
+后端技术栈
+1. Go版本：1.24.0
+2. Gin框架：v1.10.0
+3. PostgreSQL驱动：lib/pq v1.10.9
+4. PostgreSQL版本：15
+
+前端技术栈
+1. Node.js版本：20.12.1
+2. Vitepress版本：1.6.3
+3. Vue.js版本：3.5.13
+4. TypeScript版本：由VitePress管理（@types/node ^22.14.1）
+
+部署环境
+1. Docker版本：28.0.1
+2. Docker Compose版本：v2.33.1-desktop.1
+3. Nginx版本：nginx:alpine
+
+2. 环境要求
+
+1) 确保系统已安装以下软件：
+   1. Docker 和 Docker Compose
+   2. Git
+
+2) 确保以下端口未被占用：
+   1. 80: 前端服务
+   2. 3000: 后端API服务
+   3. 5432: PostgreSQL服务
+
+3. 项目结构
+
+MBlog/
+├── frontend/          # 前端项目目录
+│   ├── src/          # 源代码
+│   ├── Dockerfile    # 前端Docker构建文件
+│   └── nginx/        # Nginx配置
+├── backend/          # 后端项目目录
+│   ├── pkg/         # 后端功能模块
+│   ├── main.go      # 主程序入口
+│   └── Dockerfile   # 后端Docker构建文件
+└── docker/          # Docker编排配置
+    └── docker-compose.yml
+
+4. 安装步骤
+
+1) 解压项目源码：
+   unzip MBlog-source.zip
+   cd MBlog
+
+2) 配置环境变量：
+   cp .env.example .env
+   
+   编辑 .env 文件，设置必要的环境变量：
+   1. POSTGRES_PASSWORD: PostgreSQL root密码
+   2. JWT_SECRET: JWT密钥
+   3. API_URL: 后端API地址
+
+3) 构建Docker镜像：
+   # 构建前端镜像
+   cd frontend
+   docker build -t mblog-frontend .
+
+   # 构建后端镜像
+   cd ../backend
+   docker build -t mblog-backend .
+
+   # 或者使用docker-compose一键构建所有镜像
+   docker-compose -f docker/docker-compose.yml build
+
+4) 使用Docker Compose启动服务：
+   docker-compose -f docker/docker-compose.yml up -d
+
+5. 配置说明
+
+数据库配置
+1. 默认创建的数据库名为 blog_db
+2. 默认用户名为 postgres
+3. 密码通过环境变量 POSTGRES_PASSWORD 设置
+
+Nginx配置
+1. 前端服务默认端口：80
+2. API代理配置位于 frontend/nginx/default.conf
+
+6. 启动服务
+
+使用Docker Compose（推荐）：
+1. 启动所有服务
+   docker-compose -f docker/docker-compose.yml up -d
+
+2. 查看服务状态
+   docker-compose -f docker/docker-compose.yml ps
+
+3. 查看服务日志
+   docker-compose -f docker/docker-compose.yml logs -f
+
+
+7. 使用说明
+
+1) 访问地址：
+   1. 前端页面：http://localhost
+   2. 管理界面：http://localhost:3000/admin
+
+2) 主要功能：
+
+   文档管理：
+   1. 通过管理界面（/admin）创建和编辑Markdown文档
+   2. 支持tech/和life/两个文档分类
+   3. 文档自动构建为静态网站
+
+   评论系统：
+   1. 支持在每篇文章下方发表评论
+   2. 评论支持基本的用户信息（昵称、邮箱）
+   3. 支持评论的审核管理
+
+   访问统计：
+   1. 自动记录页面访问、点击等用户行为
+   2. 提供访问量、独立访客等统计数据
+   3. 支持用户行为路径分析
+   4. 提供平台和浏览器分布统计
+
+3) 使用流程：
+
+   发布文章：
+   1. 访问管理界面 http://localhost:3000/admin
+   2. 选择文档分类（tech/或life/）
+   3. 创建新的Markdown文件
+   4. 编写文章内容并保存
+   5. 文章将自动构建并发布到网站
+
+   查看统计：
+   1. 访问统计数据通过API获取
+   2. 支持按时间范围查看各类统计指标
+   3. 可视化展示用户访问路径和行为特征
+
+4) 注意事项：
+   1. 文档文件名建议使用英文，避免特殊字符
+   2. 文档内容支持Markdown格式
+   3. 评论系统默认开启，无需额外配置
+   4. 访问统计自动运行，无需手动启动
+
+8. 可能问题
+1. 宿主机存在postgresql，跟容器内postgresql同样的端口，宿主机的数据库管理工具不会优先管理容器内数据库。
+
