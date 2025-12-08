@@ -1,41 +1,72 @@
-# 使用官方 Go 轻量镜像作为构建环境
-FROM docker.xuanyuan.me/library/golang:1.24.0-alpine AS builder
-# FROM golang:1.24.0-alpine AS builder
+# ============================================
+# 第一阶段：构建阶段
+# ============================================
+FROM golang:1.24.0-alpine AS builder
 
 # 设置工作目录
 WORKDIR /build
 
-# 设置Go代理为七牛云
-ENV GOPROXY=https://goproxy.cn,direct
+# 设置 Go 环境变量
+ENV GOPROXY=https://goproxy.cn,direct \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
+
+# 先复制 go.mod 和 go.sum，利用 Docker 层缓存
+COPY go.mod go.sum ./
+
+# 下载依赖（这一层会被缓存，除非 go.mod/go.sum 改变）
+RUN go mod download
 
 # 复制源代码
 COPY . .
 
-# 构建可执行文件
-RUN CGO_ENABLED=0 GOOS=linux go build -o blog
+# 编译生成可执行文件
+# -ldflags="-w -s" 去除调试信息，减小二进制文件体积
+RUN go build -ldflags="-w -s" -o blog .
 
-# 使用轻量级镜像运行
-FROM docker.xuanyuan.me/library/alpine:latest
-# FROM alpine:latest
+# ============================================
+# 第二阶段：运行阶段
+# ============================================
+FROM alpine:latest
 
-# 设置时区为中国时区
+# 设置时区为上海
 ENV TZ=Asia/Shanghai
 
-# 使用国内镜像源并安装必要的包
+# 安装必要的运行时依赖
+# - ca-certificates: HTTPS 请求需要
+# - tzdata: 时区数据
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk update && \
-    apk add --no-cache tzdata && \
-    apk add --no-cache nodejs npm git && \
+    apk add --no-cache ca-certificates tzdata && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
     rm -rf /var/cache/apk/*
 
+# 创建非 root 用户运行应用（安全最佳实践）
+RUN addgroup -g 1000 appgroup && \
+    adduser -D -u 1000 -G appgroup appuser
+
+# 设置工作目录
 WORKDIR /app
 
-# 从构建阶段复制二进制文件
-COPY --from=builder /build/blog /app/
+# 从构建阶段复制二进制文件和静态资源
+COPY --from=builder /build/blog /app/blog
 COPY --from=builder /build/static /app/static
 
+# 设置文件权限
+RUN chown -R appuser:appgroup /app && \
+    chmod +x /app/blog
+
+# 切换到非 root 用户
+USER appuser
+
+# 暴露端口
 EXPOSE 3000
 
+# 健康检查（可选，但推荐）
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/ping || exit 1
+
+# 启动应用
 CMD ["./blog"]

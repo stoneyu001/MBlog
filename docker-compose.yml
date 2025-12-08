@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # PostgreSQL 数据库服务
+  # ============================================
+  db:
+    image: postgres:15-alpine
+    container_name: mblog_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - mblog_network
+    # 健康检查：确保数据库完全启动后再启动后端
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # Go 后端 API 服务
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mblog_backend
+    restart: unless-stopped
+    environment:
+      # 数据库连接配置
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      # 时区配置
+      TZ: Asia/Shanghai
+    ports:
+      - "${BACKEND_PORT}:3000"
+    volumes:
+      # 挂载前端目录供后端访问（用于文件管理功能）
+      - ./frontend:/app/frontend
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mblog_network
+    # 后端健康检查
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # Nginx 前端服务
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mblog_frontend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "${FRONTEND_PORT}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - mblog_network
+    # 前端健康检查
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+# ============================================
+# 数据卷定义
+# ============================================
+volumes:
+  # PostgreSQL 数据持久化卷
+  pg_data:
+    driver: local
+
+# ============================================
+# 网络定义
+# ============================================
+networks:
+  # 自定义网络，隔离服务
+  mblog_network:
+    driver: bridge
