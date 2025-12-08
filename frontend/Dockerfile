@@ -5,6 +5,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /build
 
+# 安装 git（VitePress 需要用于获取文件元数据）
+RUN apk add --no-cache git tzdata
+
 # 设置 npm 镜像源为国内镜像（加速依赖下载）
 RUN npm config set registry https://registry.npmmirror.com
 
