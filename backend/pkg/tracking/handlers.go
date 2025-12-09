@@ -165,14 +165,6 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	})
 }
 
-// 辅助函数
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
-}
-
 // 同时尝试下划线和驼峰两种命名获取字符串值
 func getStringWithFallback(m map[string]interface{}, snakeKey, camelKey string) string {
 	if val, ok := m[snakeKey].(string); ok && val != "" {

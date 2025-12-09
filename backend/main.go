@@ -47,8 +47,15 @@ func main() {
 	// 初始化数据库连接（使用端口5432 - 容器内部端口）
 	dbHost := getEnv("DB_HOST", "db")
 	dbPort := getEnv("DB_PORT", "5432")
-	dbUser := getEnv("POSTGRES_USER", "postgres")
-	dbPass := getEnv("POSTGRES_PASSWORD", "4341289")
+	dbUser := getEnv("DB_USER", "postgres")
+	// 密码必须从环境变量获取，不提供默认值
+	dbPass := os.Getenv("DB_PASSWORD")
+	if dbPass == "" {
+		dbPass = os.Getenv("POSTGRES_PASSWORD")
+		if dbPass == "" {
+			log.Fatal("数据库密码未设置: 请在环境变量中设置 DB_PASSWORD 或 POSTGRES_PASSWORD")
+		}
+	}
 	dbName := getEnv("POSTGRES_DB", "blog_db")
 
 	// 构建连接字符串
@@ -66,6 +73,19 @@ func main() {
 		log.Fatal("数据库连接失败:", err)
 	}
 	defer db.Close()
+
+	// 配置数据库连接池
+	db.SetMaxOpenConns(25)                 // 最大打开连接数
+	db.SetMaxIdleConns(5)                  // 最大空闲连接数
+	db.SetConnMaxLifetime(5 * time.Minute) // 连接最大生命周期
+
+	// 验证数据库连接
+	if err := db.Ping(); err != nil {
+		log.Fatal("数据库连接验证失败:", err)
+	}
+
+	log.Printf("数据库连接池配置完成: 最大连接=%d, 空闲连接=%d, 生命周期=%v",
+		25, 5, 5*time.Minute)
 
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)

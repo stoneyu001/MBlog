@@ -32,3 +32,7 @@ temp/
 .cursor/ 
 # 环境变量文件（包含敏感信息）
 .env
+
+# Grafana 生成的配置文件
+grafana/provisioning/datasources/postgres.yml
+*.backup

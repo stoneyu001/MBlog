@@ -28,6 +28,39 @@ func init() {
 
 	// 输出当前时区和时间，用于调试
 	log.Printf("初始化时区: %s, 当前时间: %s", chinaLocation.String(), time.Now().In(chinaLocation).Format("2006-01-02 15:04:05"))
+
+	// 启动后台缓存清理任务
+	go backgroundCacheCleaner()
+}
+
+// backgroundCacheCleaner 后台定时清理过期缓存
+func backgroundCacheCleaner() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	log.Println("后台缓存清理器已启动，每小时执行一次")
+
+	for range ticker.C {
+		cleanExpiredCache()
+	}
+}
+
+// cleanExpiredCache 清理超过1小时的过期缓存
+func cleanExpiredCache() {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
+	now := time.Now().UnixMilli()
+	beforeCount := len(lastEventCache)
+
+	for sid, data := range lastEventCache {
+		if now-data.Timestamp > 3600000 { // 1小时 = 3600000毫秒
+			delete(lastEventCache, sid)
+		}
+	}
+
+	afterCount := len(lastEventCache)
+	log.Printf("缓存清理完成: 清理前=%d, 清理后=%d, 已删除=%d", beforeCount, afterCount, beforeCount-afterCount)
 }
 
 // 确保数据库连接使用UTF8编码
@@ -66,13 +99,6 @@ func updateLastEventInfo(sessionID string, info LastEventInfo) {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
 	lastEventCache[sessionID] = info
-	// 清理超过1小时的缓存
-	now := time.Now().UnixMilli()
-	for sid, data := range lastEventCache {
-		if now-data.Timestamp > 3600000 { // 1小时 = 3600000毫秒
-			delete(lastEventCache, sid)
-		}
-	}
 }
 
 // 将请求转换为不分区埋点事件对象

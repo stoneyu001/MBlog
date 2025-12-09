@@ -99,13 +99,17 @@ services:
     container_name: mblog_grafana
     restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SERVER_ROOT_URL=http://localhost:${GRAFANA_PORT:-3001}
       - TZ=Asia/Shanghai
+      # 注入数据库配置用于模板替换
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
-      - "3001:3000"
+      - "${GRAFANA_PORT:-3001}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -114,6 +118,16 @@ services:
         condition: service_healthy
     networks:
       - mblog_network
+    # 使用 entrypoint 在启动前替换模板变量
+    entrypoint: >
+      sh -c "
+      if [ -f /etc/grafana/provisioning/datasources/postgres.yml.template ]; then
+        envsubst < /etc/grafana/provisioning/datasources/postgres.yml.template 
+                 > /etc/grafana/provisioning/datasources/postgres.yml;
+        echo 'Grafana datasource config generated from template';
+      fi;
+      /run.sh
+      "
     # Grafana 健康检查
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
