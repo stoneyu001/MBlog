@@ -25,6 +25,7 @@
 
 - [Docker](https://www.docker.com/get-started) (20.10+)
 - [Docker Compose](https://docs.docker.com/compose/install/) (v2.0+)
+- docker-desktop 默认安装在C盘要挺大的空间,请注意
 
 ## 🚀 快速开始
 
