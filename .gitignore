@@ -30,10 +30,10 @@ docker-volumes/
 tmp/
 temp/
 .cursor/ 
-# »·¾³±äÁ¿ÎÄ¼ş£¨°üº¬Ãô¸ĞĞÅÏ¢£©
+# é¡¹ç›®é…ç½®æ–‡ä»¶
 .env
 
-# Grafana Éú³ÉµÄÅäÖÃÎÄ¼ş
+# Grafana é…ç½®æ–‡ä»¶
 grafana/provisioning/datasources/postgres.yml
 *.backup
 # Grafana ç”Ÿæˆçš„é…ç½®æ–‡ä»¶
