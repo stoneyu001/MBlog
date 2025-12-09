@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 package comments
 
 import (
@@ -8,8 +7,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-=======
->>>>>>> 95d2e85f0dbd04a8c053b36f046ce08827d1888d
 
 	"github.com/gin-gonic/gin"
 )
