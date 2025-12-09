@@ -36,3 +36,6 @@ temp/
 # Grafana Éú³ÉµÄÅäÖÃÎÄ¼ş
 grafana/provisioning/datasources/postgres.yml
 *.backup
+# Grafana ç”Ÿæˆçš„é…ç½®æ–‡ä»¶
+grafana/provisioning/datasources/postgres.yml
+*.backup
