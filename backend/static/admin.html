@@ -1,95 +1,150 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>博客管理系统</title>
     <meta charset="UTF-8">
     <style>
-        body { max-width: 1200px; margin: 20px auto; padding: 20px; font-family: 'Microsoft YaHei', sans-serif; }
-        h1 { color: #333; }
-        .container { display: flex; }
-        .left-panel { flex: 1; padding-right: 20px; display: flex; flex-direction: column; }
-        .right-panel { flex: 2; }
-        .file-list-container { 
-            height: 500px; 
-            overflow-y: auto; 
+        body {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+        }
+
+        .left-panel {
+            flex: 1;
+            padding-right: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-panel {
+            flex: 2;
+        }
+
+        .file-list-container {
+            height: 500px;
+            overflow-y: auto;
             border: 1px solid #eee;
             margin-bottom: 10px;
             border-radius: 4px;
         }
-        textarea { width: 100%; height: 500px; font-family: monospace; padding: 10px; border: 1px solid #ddd; }
-        input[type="text"] { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; }
-        button { background: #4CAF50; color: white; border: none; padding: 10px 15px; cursor: pointer; margin-right: 10px; }
-        button:hover { background: #45a049; }
-        ul { list-style: none; padding: 0; }
-        li { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
-        li:hover { background: #f5f5f5; }
-        .file-list-title { margin-bottom: 10px; font-weight: bold; }
-        .actions { margin-top: 10px; }
-        .preview { border: 1px solid #ddd; padding: 20px; margin-top: 20px; background: #f9f9f9; }
-        .nav-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #ddd; }
-        .nav-tab { padding: 10px 20px; cursor: pointer; background: #f1f1f1; margin-right: 5px; }
-        .nav-tab.active { background: #4CAF50; color: white; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+
+        textarea {
+            width: 100%;
+            height: 500px;
+            font-family: monospace;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button.grafana-btn {
+            background: #2196F3;
+        }
+
+        button.grafana-btn:hover {
+            background: #0b7dda;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        li:hover {
+            background: #f5f5f5;
+        }
+
+        .file-list-title {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .actions {
+            margin-top: 10px;
+        }
+
+        .top-actions {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
     </style>
 </head>
+
 <body>
     <h1>博客管理系统</h1>
-    
-    <div class="nav-tabs">
-        <div class="nav-tab active" data-tab="articles">文章管理</div>
-        <div class="nav-tab" data-tab="analytics">数据展示</div>
+
+    <div class="top-actions">
+        <button class="grafana-btn" onclick="window.open('http://localhost:3001/d/mblog-analytics', '_blank')">
+            📊 查看数据分析 (Grafana)
+        </button>
     </div>
 
-    <div id="articles-tab" class="tab-content active">
-        <div class="container">
-            <div class="left-panel">
-                <div class="file-list-title">文章列表</div>
-                <div class="file-list-container">
-                    <ul id="fileList"></ul>
-                </div>
-                <div class="actions">
-                    <button id="newFile">新建文章</button>
-                    <button id="buildSite">重新生成站点</button>
-                </div>
+    <div class="container">
+        <div class="left-panel">
+            <div class="file-list-title">文章列表</div>
+            <div class="file-list-container">
+                <ul id="fileList"></ul>
             </div>
-            
-            <div class="right-panel">
-                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <select id="directory" style="padding: 8px; border: 1px solid #ddd;">
-                        <option value="tech">技术栈志</option>
-                        <option value="life">生活拾撷</option>
-                    </select>
-                    <input type="text" id="filename" placeholder="文件名 (例如: my-post.md)" style="flex: 1;"/>
-                </div>
-                <textarea id="editor" placeholder="在这里输入 Markdown 内容..."></textarea>
-                <div class="actions">
-                    <button id="saveFile">保存文件</button>
-                    <button id="deleteFile">删除文件</button>
-                </div>
+            <div class="actions">
+                <button id="newFile">新建文章</button>
+                <button id="buildSite">重新生成站点</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <select id="directory" style="padding: 8px; border: 1px solid #ddd;">
+                    <option value="tech">技术栈志</option>
+                    <option value="life">生活拾撷</option>
+                </select>
+                <input type="text" id="filename" placeholder="文件名 (例如: my-post.md)" style="flex: 1;" />
+            </div>
+            <textarea id="editor" placeholder="在这里输入 Markdown 内容..."></textarea>
+            <div class="actions">
+                <button id="saveFile">保存文件</button>
+                <button id="deleteFile">删除文件</button>
             </div>
         </div>
     </div>
 
-    <div id="analytics-tab" class="tab-content">
-        <iframe src="/static/analytics.html" style="width: 100%; height: 800px; border: none;"></iframe>
-    </div>
-
     <script>
-        // 标签切换功能
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                // 移除所有活动标签
-                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                // 激活当前标签
-                tab.classList.add('active');
-                const tabId = tab.getAttribute('data-tab');
-                document.getElementById(`${tabId}-tab`).classList.add('active');
-            });
-        });
-
         // 获取文件列表
         function loadFileList() {
             fetch('/api/files')
@@ -97,7 +152,7 @@
                 .then(files => {
                     const fileList = document.getElementById('fileList');
                     fileList.innerHTML = '';
-                    
+
                     files.forEach(file => {
                         const li = document.createElement('li');
                         li.textContent = file;
@@ -110,20 +165,17 @@
 
         // 加载文件内容
         function loadFile(filename) {
-            // 去除 /app/frontend/docs/ 前缀，获取相对路径
             const relativeFilename = filename.replace('/app/frontend/docs/', '');
-            
-            // 设置目录选择
+
             if (relativeFilename.startsWith('tech/')) {
                 document.getElementById('directory').value = 'tech';
             } else if (relativeFilename.startsWith('life/')) {
                 document.getElementById('directory').value = 'life';
             }
-            
+
             fetch(`/api/files/${relativeFilename}`)
                 .then(res => res.text())
                 .then(content => {
-                    // 设置文件名时去掉目录前缀
                     const displayFilename = relativeFilename.replace(/^(tech|life)\//, '');
                     document.getElementById('filename').value = displayFilename;
                     document.getElementById('editor').value = content;
@@ -136,68 +188,65 @@
             let filename = document.getElementById('filename').value;
             const content = document.getElementById('editor').value;
             const directory = document.getElementById('directory').value;
-            
+
             if (!filename) {
                 alert('请输入文件名');
                 return;
             }
 
-            // 如果文件名不包含目录前缀，添加目录前缀
             if (!filename.startsWith('tech/') && !filename.startsWith('life/')) {
                 filename = `${directory}/${filename}`;
             }
-            
+
             fetch('/api/files', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filename, content })
             })
-            .then(res => {
-                if (res.ok) {
-                    alert('文件保存成功');
-                    loadFileList();
-                } else {
-                    alert('保存失败');
-                }
-            })
-            .catch(err => console.error('保存文件失败:', err));
+                .then(res => {
+                    if (res.ok) {
+                        alert('文件保存成功');
+                        loadFileList();
+                    } else {
+                        alert('保存失败');
+                    }
+                })
+                .catch(err => console.error('保存文件失败:', err));
         });
 
         // 删除文件
         document.getElementById('deleteFile').addEventListener('click', () => {
             const filename = document.getElementById('filename').value;
-            
+
             if (!filename) {
                 alert('请选择要删除的文件');
                 return;
             }
-            
+
             if (!confirm(`确定要删除文件 ${filename} 吗？`)) {
                 return;
             }
-            
-            // 从完整路径中提取相对路径
+
             const relativePath = filename.replace('/app/frontend/docs/', '');
-            
+
             fetch(`/api/files/${relativePath}`, {
                 method: 'DELETE'
             })
-            .then(res => {
-                if (res.ok) {
-                    alert('文件删除成功');
-                    document.getElementById('filename').value = '';
-                    document.getElementById('editor').value = '';
-                    loadFileList();
-                } else {
-                    alert('删除失败');
-                }
-            })
-            .catch(err => console.error('删除文件失败:', err));
+                .then(res => {
+                    if (res.ok) {
+                        alert('文件删除成功');
+                        document.getElementById('filename').value = '';
+                        document.getElementById('editor').value = '';
+                        loadFileList();
+                    } else {
+                        alert('删除失败');
+                    }
+                })
+                .catch(err => console.error('删除文件失败:', err));
         });
 
         // 新建文件
         document.getElementById('newFile').addEventListener('click', () => {
-            // 清空文件名和内容，但保持目录选择不变
             document.getElementById('filename').value = '';
             document.getElementById('editor').value = '';
         });
@@ -219,4 +268,5 @@
         loadFileList();
     </script>
 </body>
-</html> 
+
+</html>
