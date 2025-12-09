@@ -1,11 +1,3 @@
-package comments
-
-import (
-	"log"
-	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,12 +18,33 @@ func (cs *CommentService) RegisterHandlers(r *gin.Engine) {
 	}
 }
 
-// handleAddComment 处理添加评论的请求
 func (cs *CommentService) handleAddComment(c *gin.Context) {
 	var req CommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("绑定评论请求失败: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数错误"})
+
+		// 提供详细的字段验证错误
+		errorMsg := "请求参数错误"
+		var missingFields []string
+
+		if req.ArticleID == "" {
+			missingFields = append(missingFields, "article_id")
+		}
+		if req.Nickname == "" {
+			missingFields = append(missingFields, "nickname")
+		}
+		if req.Content == "" {
+			missingFields = append(missingFields, "content")
+		}
+
+		if len(missingFields) > 0 {
+			errorMsg = fmt.Sprintf("缺少必填字段: %s", strings.Join(missingFields, ", "))
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   errorMsg,
+			"details": err.Error(),
+		})
 		return
 	}
 

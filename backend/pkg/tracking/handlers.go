@@ -2,6 +2,7 @@ package tracking
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -42,18 +43,26 @@ func (ts *TrackingService) RegisterHandlers(router *gin.Engine) {
 
 		// 检查跟踪服务状态
 		trackGroup.GET("/status", ts.handleTrackingStatus)
-
-		// 数据分析API
-		trackGroup.GET("/analytics", ts.HandleAnalytics)
 	}
 }
 
-// 处理单个不分区埋点事件
 func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 	var req UnpartitionedTrackEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("请求数据解析失败: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
+
+		// 提供更详细的错误信息
+		errorMsg := "无效的请求数据"
+		if jsonErr, ok := err.(*json.SyntaxError); ok {
+			errorMsg = fmt.Sprintf("JSON格式错误: 位置 %d", jsonErr.Offset)
+		} else if jsonErr, ok := err.(*json.UnmarshalTypeError); ok {
+			errorMsg = fmt.Sprintf("字段类型错误: %s 应该是 %s 类型", jsonErr.Field, jsonErr.Type)
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   errorMsg,
+			"details": err.Error(),
+		})
 		return
 	}
 

@@ -22,9 +22,9 @@ func NewTrackingService(db *sql.DB) *TrackingService {
 	ts := &TrackingService{
 		db:             db,
 		unpartBuffer:   make([]*UnpartitionedTrackEvent, 0, 1000),
-		unpartDataChan: make(chan *UnpartitionedTrackEvent, 10000),
-		batchSize:      200,              // 设置为200以匹配批处理大小
-		flushTime:      10 * time.Second, // 增加到10秒以减少数据库压力
+		unpartDataChan: make(chan *UnpartitionedTrackEvent, 50000), // 提升5倍容量，减少丢弃风险
+		batchSize:      200,                                        // 设置为200以匹配批处理大小
+		flushTime:      10 * time.Second,                           // 增加到10秒以减少数据库压力
 	}
 
 	// 启动批处理协程
@@ -38,12 +38,14 @@ func (ts *TrackingService) TrackUnpartitionedEvent(event *UnpartitionedTrackEven
 	log.Printf("收到埋点事件: type=%s, session=%s, path=%s, element=%s, metadata=%s",
 		event.EventType, event.SessionID, event.PagePath, event.ElementPath, event.Metadata)
 
-	// 异步处理
+	// 异步处理，带背压机制
 	select {
 	case ts.unpartDataChan <- event:
 		log.Printf("事件已加入队列: type=%s, session=%s", event.EventType, event.SessionID)
 	default:
-		log.Printf("警告: 埋点队列已满，丢弃事件: type=%s, session=%s", event.EventType, event.SessionID)
+		// 队列已满时，同步写入数据库而不是丢弃事件
+		log.Printf("警告: 埋点队列已满，切换到同步写入: type=%s, session=%s", event.EventType, event.SessionID)
+		ts.insertSingleEvent(event)
 	}
 }
 
