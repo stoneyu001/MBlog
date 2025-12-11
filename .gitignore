@@ -36,6 +36,3 @@ temp/
 # Grafana 配置文件
 grafana/provisioning/datasources/postgres.yml
 *.backup
-# Grafana 生成的配置文件
-grafana/provisioning/datasources/postgres.yml
-*.backup
