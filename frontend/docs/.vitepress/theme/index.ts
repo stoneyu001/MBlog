@@ -3,12 +3,13 @@ import { type Theme } from 'vitepress'
 import { onBeforeUnmount, h } from 'vue'
 import './styles/custom.css' // 自定义样式
 import createTrackingPlugin from '../plugins/tracking'
+import { getTrackingEndpoint } from '../plugins/config'
 import ArticleMeta from './components/ArticleMeta.vue' // 导入标签组件
 import CommentSection from './components/CommentSection.vue' // 导入评论组件
 
 // 创建跟踪插件
 const trackingPlugin = createTrackingPlugin({
-  endpoint: 'http://localhost:3000/api/tracking/batch',
+  endpoint: getTrackingEndpoint(), // 使用环境变量或相对路径
   batchSize: 5,         // 减小批量大小，更频繁发送
   batchInterval: 2000,  // 减少等待时间到2秒
   debug: true,
@@ -17,7 +18,7 @@ const trackingPlugin = createTrackingPlugin({
     '/admin*', // 排除管理界面
   ],
   includeElementSelector: [
-    'a', 
+    'a',
     'button',
     '.track-click', // 特别标记的元素
     '[data-track]',  // 带有data-track属性的元素
@@ -37,13 +38,13 @@ export default {
   enhanceApp({ app, router, siteData }) {
     // 注册跟踪插件
     trackingPlugin.install(router);
-    
+
     // 为特定元素添加指令式埋点
     app.directive('track', {
       mounted(el, binding) {
         // 添加标记表示这个元素应该被追踪
         el.setAttribute('data-track', '');
-        
+
         // 添加自定义元数据
         if (binding.value) {
           el.setAttribute('data-track-metadata', JSON.stringify(binding.value));
