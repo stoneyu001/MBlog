@@ -27,41 +27,41 @@ export default defineConfig({
   title: "StoneYu Blog",
   description: "share and learn",
   lastUpdated: true,
-  
+
   head: [
     ['link', { rel: 'icon', href: '/logo.png' }]
   ],
-  
+
   // 添加自动标签提取和其他元数据处理
   transformPageData(pageData: PageData & { relativePath?: string }, ctx: TransformPageContext) {
     // 检查是否是文章页面（跳过索引页和其他特殊页面）
     const relativePath = pageData.relativePath || '';
     const isArticlePage = !relativePath.includes('index') && relativePath !== '';
-    
+
     // 获取原始Markdown内容
     const rawContent = fs.readFileSync(
       path.resolve(__dirname, '..', relativePath),
       'utf-8'
     );
-    
+
     if (isArticlePage && rawContent) {
       // 检查是否已经有手动指定的标签
       const hasManualTags = getManualTags(pageData.frontmatter);
-      
+
       // 如果没有手动指定的标签，则自动提取
       if (!hasManualTags) {
         try {
           const fileName = path.basename(relativePath);
           const autoTags = extractTags(rawContent, fileName, 5);
-          
+
           // 确保 frontmatter 对象存在
           if (!pageData.frontmatter) {
             pageData.frontmatter = {};
           }
-          
+
           // 添加自动提取的标签
           pageData.frontmatter.tags = autoTags;
-          
+
           // 自动生成摘要（如果没有手动提供）
           if (!pageData.frontmatter.description && !pageData.frontmatter.excerpt) {
             const plainText = rawContent
@@ -72,10 +72,10 @@ export default defineConfig({
               .replace(/\!\[.*?\]\(.*?\)/g, '')
               .replace(/[*>_~-]/g, ' ')
               .replace(/\s+/g, ' ');
-            
+
             pageData.frontmatter.description = plainText.slice(0, 150) + (plainText.length > 150 ? '...' : '');
           }
-          
+
           // 计算阅读时间（如果没有手动提供）
           if (!pageData.frontmatter.readingTime) {
             const wordsPerMinute = 200; // 中文约200字/分钟
@@ -87,10 +87,10 @@ export default defineConfig({
         }
       }
     }
-    
+
     return pageData;
   },
-  
+
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     lastUpdated: {
@@ -137,10 +137,10 @@ export default defineConfig({
           boost: { title: 4, content: 1, tags: 3 } // 权重配置，标签权重高
         },
         // 中文分词优化
-        tokenize: (text) => {
+        tokenize: (text: string) => {
           return text
             .split(/[\s\-，。；：！？、]+/) // 基本中文分词
-            .filter(term => term.length > 1) // 过滤短词
+            .filter((term: string) => term.length > 1) // 过滤短词
         }
       } as DefaultTheme.LocalSearchOptions
     },
