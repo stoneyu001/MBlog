@@ -112,9 +112,13 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		if clientTime.After(minTime) {
 			eventTime = clientTime
 		} else {
+			log.Printf("警告: timestamp过旧(%d)，使用服务器时间，session=%s",
+				req.Timestamp, req.SessionID)
 			eventTime = time.Now().In(chinaLocation)
 		}
 	} else {
+		log.Printf("警告: timestamp为空或无效(%d)，使用服务器时间，session=%s, type=%s",
+			req.Timestamp, req.SessionID, req.EventType)
 		eventTime = time.Now().In(chinaLocation)
 	}
 
@@ -128,24 +132,58 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		log.Printf("警告: 事件类型为空，使用默认值")
 	}
 
-	// 确保platform有值
-	if req.Platform == "" || req.Platform == "unknown" {
+	// 验证并智能处理platform字段
+	validPlatforms := map[string]bool{
+		"Windows": true, "macOS": true, "Linux": true,
+		"Android": true, "iOS": true, "Unknown": true,
+	}
+
+	// 智能解析platform：处理前端发送的"OS/Browser"格式
+	originalPlatform := req.Platform
+	var extractedBrowser string
+
+	// 如果包含"/"，说明是"OS/Browser"格式，需要拆分
+	if strings.Contains(req.Platform, "/") {
+		parts := strings.Split(req.Platform, "/")
+		if len(parts) >= 2 {
+			req.Platform = parts[0]     // OS部分作为platform
+			extractedBrowser = parts[1] // Browser部分单独保存
+			log.Printf("解析platform格式: '%s' → OS='%s', Browser='%s'",
+				originalPlatform, req.Platform, extractedBrowser)
+		}
+	}
+
+	// 如果platform为空、unknown或不在有效列表中，则从UserAgent提取
+	if req.Platform == "" || req.Platform == "unknown" || !validPlatforms[req.Platform] {
+		// 记录原始值（如果有）
+		if req.Platform != "" && req.Platform != "unknown" {
+			log.Printf("警告: platform值不规范 '%s'，将从UserAgent提取", req.Platform)
+		}
+
 		// 从user_agent中提取平台信息
 		userAgent := c.Request.UserAgent()
 		platform, browser := extractPlatformFromUA(userAgent)
 		req.Platform = platform
-
-		// 将浏览器信息存储在metadata中
-		if req.Metadata == nil {
-			req.Metadata = make(map[string]interface{})
-		}
-		req.Metadata["browser"] = browser
-		req.Metadata["user_agent"] = userAgent
+		extractedBrowser = browser // 使用UserAgent提取的浏览器
 
 		log.Printf("从UserAgent提取信息: platform=%s, browser=%s", platform, browser)
 	}
 
-	// 确保event_duration是非负数，如果为0则尝试计算
+	// 将浏览器信息保存到metadata中
+	if extractedBrowser != "" {
+		if req.Metadata == nil {
+			req.Metadata = make(map[string]interface{})
+		}
+		// 只在metadata中没有browser字段时才设置
+		if _, exists := req.Metadata["browser"]; !exists {
+			req.Metadata["browser"] = extractedBrowser
+		}
+		req.Metadata["user_agent"] = c.Request.UserAgent()
+
+		log.Printf("浏览器信息已保存到metadata: browser=%s", extractedBrowser)
+	}
+
+	// 优化event_duration计算：计算任意两个事件之间的时间差
 	if req.EventDuration <= 0 {
 		// 获取上一次事件信息
 		lastEvent, exists := getLastEventInfo(req.SessionID)
@@ -153,32 +191,26 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		if exists && req.Timestamp > lastEvent.Timestamp {
 			durationMs := req.Timestamp - lastEvent.Timestamp
 
-			// 根据事件类型计算持续时间
-			switch req.EventType {
-			case "PAGEVIEW":
-				// 如果上一个事件是PAGEVIEW，使用时间差
-				if lastEvent.EventType == "PAGEVIEW" {
-					req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
-					log.Printf("计算PAGEVIEW持续时间: %d秒 (从上次PAGEVIEW时间差: %d毫秒)",
-						req.EventDuration, durationMs)
-				}
-			case "CLICK":
-				// 如果上一个事件是CLICK，使用时间差
-				if lastEvent.EventType == "CLICK" {
-					req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
-					log.Printf("计算CLICK持续时间: %d秒 (从上次CLICK时间差: %d毫秒)",
-						req.EventDuration, durationMs)
-				}
-			}
-		}
+			// 计算所有事件之间的持续时间（不限制事件类型）
+			// 上限设为1小时（3600秒），避免异常值
+			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
 
-		// 更新最后一次事件信息
-		updateLastEventInfo(req.SessionID, LastEventInfo{
-			Timestamp: req.Timestamp,
-			EventType: req.EventType,
-			SessionID: req.SessionID,
-		})
+			log.Printf("计算事件持续时间: %d秒 (从 %s[t=%d] 到 %s[t=%d], 时间差=%dms)",
+				req.EventDuration, lastEvent.EventType, lastEvent.Timestamp,
+				req.EventType, req.Timestamp, durationMs)
+		} else if !exists {
+			log.Printf("首次事件，无法计算持续时间: session=%s, type=%s", req.SessionID, req.EventType)
+		}
+	} else {
+		log.Printf("使用前端提供的event_duration: %d秒", req.EventDuration)
 	}
+
+	// 始终更新最后一次事件信息（用于下次计算）
+	updateLastEventInfo(req.SessionID, LastEventInfo{
+		Timestamp: req.Timestamp,
+		EventType: req.EventType,
+		SessionID: req.SessionID,
+	})
 
 	// 统一处理所有URL相关字段的解码
 	// 处理页面路径
@@ -273,7 +305,8 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 
 // 将map转换为JSON字符串，确保中文正确处理
 func convertMapToString(data map[string]interface{}) string {
-	if len(data) == 0 {
+	// 同时检查nil和空map
+	if data == nil || len(data) == 0 {
 		return `{}`
 	}
 

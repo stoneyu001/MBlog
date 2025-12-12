@@ -124,9 +124,9 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		INSERT INTO track_event 
 		(session_id, user_id, event_type, element_path, page_path, referrer, 
 		metadata, user_agent, ip_address, created_at, custom_properties, 
-		platform, device_info, event_duration)
+		platform, device_info, event_duration, device_id, version)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11::jsonb, 
-		$12, $13::jsonb, $14)
+		$12, $13::jsonb, $14, $15, $16)
 	`)
 
 	if err != nil {
@@ -173,6 +173,8 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 			event.Platform,
 			event.DeviceInfo,
 			event.EventDuration,
+			event.DeviceID,
+			event.Version,
 		)
 
 		if execErr != nil {
@@ -220,9 +222,9 @@ func (ts *TrackingService) insertSingleEvent(event *UnpartitionedTrackEvent) {
 		INSERT INTO track_event 
 		(session_id, user_id, event_type, element_path, page_path, referrer, 
 		metadata, user_agent, ip_address, created_at, custom_properties, 
-		platform, device_info, event_duration)
+		platform, device_info, event_duration, device_id, version)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11::jsonb, 
-		$12, $13::jsonb, $14)
+		$12, $13::jsonb, $14, $15, $16)
 	`,
 		event.SessionID,
 		event.UserID,
@@ -238,6 +240,8 @@ func (ts *TrackingService) insertSingleEvent(event *UnpartitionedTrackEvent) {
 		event.Platform,
 		event.DeviceInfo,
 		event.EventDuration,
+		event.DeviceID,
+		event.Version,
 	)
 
 	if err != nil {

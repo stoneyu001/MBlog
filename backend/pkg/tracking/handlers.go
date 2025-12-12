@@ -135,15 +135,18 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 
 		// 构建请求结构体
 		req := UnpartitionedTrackEventRequest{
-			EventType:     getStringWithFallback(eventMap, "event_type", "eventType"),
-			SessionID:     getStringWithFallback(eventMap, "session_id", "sessionId"),
-			UserID:        getStringWithFallback(eventMap, "user_id", "userId"),
-			ElementPath:   getStringWithFallback(eventMap, "element_path", "elementPath"),
-			PagePath:      getStringWithFallback(eventMap, "page_path", "pagePath"),
-			Referrer:      getStringWithFallback(eventMap, "referrer", "referrer"),
-			Timestamp:     getInt64WithFallback(eventMap, "timestamp", "timestamp"),
-			Platform:      getStringWithFallback(eventMap, "platform", "platform"),
-			EventDuration: getIntWithFallback(eventMap, "event_duration", "eventDuration"),
+			EventType:        getStringWithFallback(eventMap, "event_type", "eventType"),
+			SessionID:        getStringWithFallback(eventMap, "session_id", "sessionId"),
+			UserID:           getStringWithFallback(eventMap, "user_id", "userId"),
+			ElementPath:      getStringWithFallback(eventMap, "element_path", "elementPath"),
+			PagePath:         getStringWithFallback(eventMap, "page_path", "pagePath"),
+			Referrer:         getStringWithFallback(eventMap, "referrer", "referrer"),
+			Timestamp:        getInt64WithFallback(eventMap, "timestamp", "timestamp"),
+			Platform:         getStringWithFallback(eventMap, "platform", "platform"),
+			EventDuration:    getIntWithFallback(eventMap, "event_duration", "eventDuration"),
+			Metadata:         getMapWithFallback(eventMap, "metadata", "metadata"),
+			CustomProperties: getMapWithFallback(eventMap, "custom_properties", "customProperties"),
+			DeviceInfo:       getMapWithFallback(eventMap, "device_info", "deviceInfo"),
 		}
 
 		// 打印请求内容以调试
@@ -163,6 +166,17 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 		"processed": validEvents,
 		"invalid":   invalidEvents,
 	})
+}
+
+// 同时尝试下划线和驼峰两种命名获取map值
+func getMapWithFallback(m map[string]interface{}, snakeKey, camelKey string) map[string]interface{} {
+	if val, ok := m[snakeKey].(map[string]interface{}); ok {
+		return val
+	}
+	if val, ok := m[camelKey].(map[string]interface{}); ok {
+		return val
+	}
+	return nil
 }
 
 // 同时尝试下划线和驼峰两种命名获取字符串值
@@ -198,19 +212,31 @@ func getInt64WithFallback(m map[string]interface{}, snakeKey, camelKey string) i
 
 // 同时尝试下划线和驼峰两种命名获取int值
 func getIntWithFallback(m map[string]interface{}, snakeKey, camelKey string) int {
-	if val, ok := m[snakeKey].(float64); ok {
-		return int(val)
+	// 先尝试snake_case，检查key是否存在
+	if val, exists := m[snakeKey]; exists {
+		return convertToInt(val)
 	}
-	if val, ok := m[camelKey].(float64); ok {
-		return int(val)
-	}
-	if val, ok := m[snakeKey].(int); ok {
-		return val
-	}
-	if val, ok := m[camelKey].(int); ok {
-		return val
+	// 再尝试camelCase
+	if val, exists := m[camelKey]; exists {
+		return convertToInt(val)
 	}
 	return 0
+}
+
+// convertToInt 将interface{}转换为int，支持多种数值类型
+func convertToInt(v interface{}) int {
+	switch val := v.(type) {
+	case float64:
+		return int(val)
+	case int:
+		return val
+	case int64:
+		return int(val)
+	case int32:
+		return int(val)
+	default:
+		return 0
+	}
 }
 
 // 跟踪服务状态
