@@ -122,8 +122,7 @@ services:
     entrypoint: >
       sh -c "
       if [ -f /etc/grafana/provisioning/datasources/postgres.yml.template ]; then
-        envsubst < /etc/grafana/provisioning/datasources/postgres.yml.template 
-                 > /etc/grafana/provisioning/datasources/postgres.yml;
+        sed -e \"s|\\$${POSTGRES_USER}|$$POSTGRES_USER|g\" -e \"s|\\$${POSTGRES_PASSWORD}|$$POSTGRES_PASSWORD|g\" -e \"s|\\$${POSTGRES_DB}|$$POSTGRES_DB|g\" /etc/grafana/provisioning/datasources/postgres.yml.template > /etc/grafana/provisioning/datasources/postgres.yml;
         echo 'Grafana datasource config generated from template';
       fi;
       /run.sh
