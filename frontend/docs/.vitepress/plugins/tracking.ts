@@ -471,8 +471,9 @@ export class Tracker {
   public trackPageView(path: string, referrer?: string, extraMetadata?: Record<string, any>): void {
     if (!isBrowser) return;
 
-    const encodedPath = encodeURIComponent(path);
-    const encodedReferrer = referrer ? encodeURIComponent(referrer) : '';
+    // 不再对路径进行编码，直接发送中文路径，后端会处理
+    const pagePath = path;
+    const pageReferrer = referrer || '';
 
     const now = Date.now();
 
@@ -496,12 +497,12 @@ export class Tracker {
 
     // 获取平台信息
     const platform = this.getPlatformInfo();
-    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}秒, path=${encodedPath}`);
+    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}秒, path=${pagePath}`);
 
     // 构建元数据，包含上一次的时间戳
     const metadata = {
       title: typeof document !== 'undefined' ? document.title : '',
-      url: typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '',
+      url: typeof window !== 'undefined' ? window.location.href : '',
       prev_timestamp: this.pageEnterTime,
       current_timestamp: now,
       duration_ms: event_duration * 1000, // 保存毫秒值在metadata中，用于调试
@@ -511,8 +512,8 @@ export class Tracker {
 
     this.track({
       event_type: TrackEventType.PAGEVIEW,
-      page_path: encodedPath,
-      referrer: encodedReferrer,
+      page_path: pagePath,
+      referrer: pageReferrer,
       event_duration,  // 已经是秒
       platform,
       metadata
@@ -524,16 +525,17 @@ export class Tracker {
     if (!isBrowser) return;
 
     const element_path = this.getElementPath(element);
-    const encodedPath = encodeURIComponent(path);
-    const encodedElementPath = encodeURIComponent(element_path);
+    // 不再对路径进行编码，直接发送中文路径
+    const pagePath = path;
+    const elementPathStr = element_path;
 
     // 获取平台信息
     const platform = this.getPlatformInfo();
 
     this.track({
       event_type: TrackEventType.CLICK,
-      page_path: encodedPath,
-      element_path: encodedElementPath,
+      page_path: pagePath,
+      element_path: elementPathStr,
       platform,
       event_duration: 0,
       metadata: {
@@ -627,7 +629,7 @@ export class Tracker {
         referrer: event.referrer,
         metadata: event.metadata ? {
           ...event.metadata,
-          url: event.metadata.url ? encodeURIComponent(event.metadata.url) : undefined,
+          url: event.metadata.url || undefined,
           platform_detail: platform  // 添加详细的平台信息到元数据中
         } : { platform_detail: platform }
       };
@@ -687,7 +689,7 @@ export class Tracker {
 
         this.track({
           event_type: TrackEventType.PAGEVIEW,
-          page_path: encodeURIComponent(currentPath),
+          page_path: currentPath,
           event_duration: lastPageDuration,  // 已经是秒
           platform: this.getPlatformInfo(),
           metadata: {

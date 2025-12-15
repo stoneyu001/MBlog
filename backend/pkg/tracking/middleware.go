@@ -273,10 +273,57 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		}
 	}
 
-	// JSON字段转换
-	metadata := convertMapToString(req.Metadata)
+	// 处理metadata中的URL字段
+	metadataMap := req.Metadata
+	if metadataMap != nil {
+		for key, value := range metadataMap {
+			if strValue, ok := value.(string); ok {
+				// 检查是否是URL相关字段
+				lowerKey := strings.ToLower(key)
+				if strings.Contains(lowerKey, "url") ||
+					strings.Contains(lowerKey, "path") ||
+					strings.Contains(lowerKey, "link") ||
+					strings.Contains(lowerKey, "href") {
+					decodedValue, err := url.QueryUnescape(strValue)
+					if err == nil && decodedValue != strValue {
+						log.Printf("Metadata URL解码 [%s]: %s -> %s", key, strValue, decodedValue)
+						metadataMap[key] = decodedValue
+					}
+				}
+			}
+		}
+	}
+
+	// 清理device_info中的冗余和敏感数据
+	deviceInfoMap := req.DeviceInfo
+	if deviceInfoMap != nil {
+		// 移除可能的敏感字段
+		sensitiveKeys := []string{"password", "token", "secret", "key", "auth"}
+		for _, sensitiveKey := range sensitiveKeys {
+			delete(deviceInfoMap, sensitiveKey)
+		}
+
+		// 清理字符串值
+		for key, value := range deviceInfoMap {
+			if strValue, ok := value.(string); ok {
+				deviceInfoMap[key] = cleanString(strValue)
+			}
+		}
+	}
+
+	// 应用字符串清理到主要字段
+	req.SessionID = cleanString(req.SessionID)
+	req.UserID = cleanString(req.UserID)
+	req.EventType = cleanString(req.EventType)
+	pagePath = cleanString(pagePath)
+	elementPath = cleanString(elementPath)
+	referrer = cleanString(referrer)
+	req.Platform = cleanString(req.Platform)
+
+	// JSON字段转换（使用已清理的数据）
+	metadata := convertMapToString(metadataMap)
 	customPropsStr := convertMapToString(customProps)
-	deviceInfo := convertMapToString(req.DeviceInfo)
+	deviceInfo := convertMapToString(deviceInfoMap)
 
 	// 创建事件对象
 	event := &UnpartitionedTrackEvent{
@@ -508,4 +555,22 @@ func extractPlatformFromUA(ua string) (platform, browser string) {
 	}
 
 	return platform, browser
+}
+
+// cleanString 清理字符串，去除首尾空格、换行符等
+func cleanString(s string) string {
+	if s == "" {
+		return s
+	}
+	// 去除首尾空格
+	s = strings.TrimSpace(s)
+	// 去除多余的换行符和回车符
+	s = strings.ReplaceAll(s, "\r\n", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	// 压缩多个连续空格为单个空格
+	for strings.Contains(s, "  ") {
+		s = strings.ReplaceAll(s, "  ", " ")
+	}
+	return strings.TrimSpace(s)
 }
