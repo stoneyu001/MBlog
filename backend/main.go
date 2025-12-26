@@ -234,6 +234,75 @@ func main() {
 		c.JSON(200, gin.H{"status": "success"})
 	})
 
+	// 6. 批量上传文件
+	r.POST("/api/upload", func(c *gin.Context) {
+		// 解析 multipart form
+		form, err := c.MultipartForm()
+		if err != nil {
+			c.JSON(400, gin.H{"error": fmt.Sprintf("上传失败: %v", err)})
+			return
+		}
+
+		files := form.File["files"]
+		var successCount, failCount int
+		var errorMsgs []string
+
+		for _, file := range files {
+			log.Printf("正在处理上传文件: %s", file.Filename)
+
+			// 打开文件
+			src, err := file.Open()
+			if err != nil {
+				failCount++
+				errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 打开失败", file.Filename))
+				continue
+			}
+			defer src.Close()
+
+			// 读取内容
+			// 限制文件大小，例如 10MB
+			if file.Size > 10*1024*1024 {
+				failCount++
+				errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 文件过大", file.Filename))
+				continue
+			}
+
+			contentBytes := make([]byte, file.Size)
+			_, err = src.Read(contentBytes)
+			if err != nil {
+				failCount++
+				errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 读取失败", file.Filename))
+				continue
+			}
+
+			// 保存文件
+			// 直接使用文件名，filemanager.SaveFile 会处理目录前缀逻辑
+			// 如果文件名不包含 tech/ 或 life/，SaveFile 默认会存到 tech/
+			// 这里我们假设用户上传的文件名就是纯文件名，让 SaveFile 去处理默认逻辑
+			// 或者我们可以尝试从前端传参来指定默认目录，但目前需求未提及，保持简单
+			if err := filemanager.SaveFile(file.Filename, string(contentBytes)); err != nil {
+				failCount++
+				errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 保存失败 - %v", file.Filename, err))
+			} else {
+				successCount++
+			}
+		}
+
+		// 更新侧边栏
+		if successCount > 0 {
+			if err := filemanager.UpdateSidebarConfig(); err != nil {
+				log.Printf("批量上传后更新侧边栏失败: %v", err)
+			}
+		}
+
+		c.JSON(200, gin.H{
+			"success": successCount,
+			"failed":  failCount,
+			"errors":  errorMsgs,
+			"total":   len(files),
+		})
+	})
+
 	// 托管管理界面
 	r.StaticFile("/admin", "/app/static/admin.html")
 	r.StaticFile("/admin/", "/app/static/admin.html")
