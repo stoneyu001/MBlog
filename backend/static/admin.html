@@ -1,271 +1,451 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 
 <head>
-    <title>博客管理系统</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>博客管理系统</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <!-- Font settings -->
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
         body {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 20px;
-            font-family: 'Microsoft YaHei', sans-serif;
+            font-family: 'Inter', sans-serif;
         }
 
-        h1 {
-            color: #333;
-        }
-
-        .container {
-            display: flex;
-        }
-
-        .left-panel {
-            flex: 1;
-            padding-right: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .right-panel {
-            flex: 2;
-        }
-
-        .file-list-container {
-            height: 500px;
-            overflow-y: auto;
-            border: 1px solid #eee;
-            margin-bottom: 10px;
-            border-radius: 4px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 500px;
-            font-family: monospace;
-            padding: 10px;
-            border: 1px solid #ddd;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-        }
-
-        button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-
-        button:hover {
-            background: #45a049;
-        }
-
-        button.grafana-btn {
-            background: #2196F3;
-        }
-
-        button.grafana-btn:hover {
-            background: #0b7dda;
-        }
-
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        li {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-        }
-
-        li:hover {
-            background: #f5f5f5;
-        }
-
-        .file-list-title {
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-
-        .actions {
-            margin-top: 10px;
-        }
-
-        .top-actions {
-            margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
+        [x-cloak] {
+            display: none !important;
         }
     </style>
 </head>
 
-<body>
-    <h1>博客管理系统</h1>
+<body class="bg-gray-50 text-gray-900" x-data="adminApp()" x-init="init()" x-cloak>
 
-    <div class="top-actions">
-        <button class="grafana-btn" onclick="window.open('http://localhost:3001/d/mblog-analytics', '_blank')">
-            📊 查看数据分析 (Grafana)
-        </button>
+    <!-- Toast Notification -->
+    <div class="fixed top-5 right-5 z-50 transition-all duration-300 transform" x-show="toast.show"
+        x-transition:enter="translate-x-full opacity-0" x-transition:enter-end="translate-x-0 opacity-100"
+        x-transition:leave="translate-x-0 opacity-100" x-transition:leave-end="translate-x-full opacity-0">
+        <div class="flex items-center w-full max-w-xs p-4 text-gray-500 bg-white rounded-lg shadow dark:text-gray-400 dark:bg-gray-800"
+            role="alert">
+            <div
+                class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-green-500 bg-green-100 rounded-lg dark:bg-green-800 dark:text-green-200">
+                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor"
+                    viewBox="0 0 20 20">
+                    <path
+                        d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.707 8.207-4 4a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L9 10.586l3.293-3.293a1 1 0 0 1 1.414 1.414Z" />
+                </svg>
+            </div>
+            <div class="ml-3 text-sm font-normal" x-text="toast.message"></div>
+        </div>
     </div>
 
-    <div class="container">
-        <div class="left-panel">
-            <div class="file-list-title">文章列表</div>
-            <div class="file-list-container">
-                <ul id="fileList"></ul>
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="hidden md:flex md:flex-col w-64 bg-white border-r border-gray-200">
+            <!-- Logo -->
+            <div class="flex items-center justify-center h-16 border-b border-gray-200 bg-indigo-600">
+                <span class="text-xl font-bold text-white tracking-wider">MBlog Admin</span>
             </div>
-            <div class="actions">
-                <button id="newFile">新建文章</button>
-                <button id="buildSite">重新生成站点</button>
-            </div>
-        </div>
 
-        <div class="right-panel">
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <select id="directory" style="padding: 8px; border: 1px solid #ddd;">
-                    <option value="tech">技术栈志</option>
-                    <option value="life">生活拾撷</option>
-                </select>
-                <input type="text" id="filename" placeholder="文件名 (例如: my-post.md)" style="flex: 1;" />
+            <!-- Sidebar Content -->
+            <div class="flex-1 flex flex-col justify-between p-4">
+                <nav class="space-y-2">
+                    <a href="#" class="flex items-center px-4 py-2 text-gray-700 bg-gray-100 rounded-md group">
+                        <svg class="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                            </path>
+                        </svg>
+                        <span class="font-medium">文件管理</span>
+                    </a>
+                </nav>
+
+                <div class="space-y-4">
+                    <!-- Rebuild Button -->
+                    <button @click="rebuildSite" :disabled="isBuilding"
+                        class="w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed">
+                        <svg x-show="isBuilding" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                            </path>
+                        </svg>
+                        <span x-text="isBuilding ? '正在构建...' : '重构站点'"></span>
+                    </button>
+
+                    <!-- Grafana Button -->
+                    <button onclick="window.open('http://localhost:3001/d/mblog-analytics', '_blank')"
+                        class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                            </path>
+                        </svg>
+                        数据分析
+                    </button>
+                </div>
             </div>
-            <textarea id="editor" placeholder="在这里输入 Markdown 内容..."></textarea>
-            <div class="actions">
-                <button id="saveFile">保存文件</button>
-                <button id="deleteFile">删除文件</button>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-gray-50">
+            <!-- Top Header -->
+            <header class="bg-white border-b border-gray-200 shadow-sm z-10">
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <!-- Mobile Menu Button (Hidden on Desktop) -->
+                    <button class="md:hidden mr-4 text-gray-500 focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+
+                    <!-- Search -->
+                    <div class="flex-1 max-w-2xl">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <input x-model="searchQuery" type="text"
+                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+                                placeholder="搜索文章...">
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="ml-4 flex items-center">
+                        <button @click="openModal('new')"
+                            class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            新建文章
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- File List Area -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <h2 class="text-lg font-medium text-gray-900">文章列表</h2>
+                    <span class="text-sm text-gray-500" x-text="`共 ${filteredFiles.length} 篇`"></span>
+                </div>
+
+                <!-- Grid View -->
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <template x-for="file in filteredFiles" :key="file">
+                        <div
+                            class="group bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200 flex flex-col">
+                            <div class="p-5 flex-1">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-shrink-0">
+                                        <!-- Icon based on folder -->
+                                        <div class="h-12 w-12 rounded-lg flex items-center justify-center transition-colors"
+                                            :class="file.includes('tech/') ? 'bg-blue-50 text-blue-600' : (file.includes('life/') ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-600')">
+                                            <svg x-show="file.includes('tech/')" class="h-6 w-6" fill="none"
+                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                                            </svg>
+                                            <svg x-show="file.includes('life/')" class="h-6 w-6" fill="none"
+                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z">
+                                                </path>
+                                            </svg>
+                                            <svg x-show="!file.includes('tech/') && !file.includes('life/')"
+                                                class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                                </path>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <!-- Category Badge -->
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                        :class="file.includes('tech/') ? 'bg-blue-100 text-blue-800' : (file.includes('life/') ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800')"
+                                        x-text="file.split('/')[0] === file ? 'Root' : file.split('/')[0]">
+                                    </span>
+                                </div>
+                                <div class="mt-4">
+                                    <h3 class="text-base font-semibold text-gray-900 truncate"
+                                        x-text="file.split('/').pop()"></h3>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="border-t border-gray-100 px-5 py-3 bg-gray-50 flex space-x-2">
+                                <button @click="openModal('edit', file)"
+                                    class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                    <svg class="h-4 w-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                                        </path>
+                                    </svg>
+                                    编辑
+                                </button>
+                                <button @click="deleteFile(file)"
+                                    class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                    <svg class="h-4 w-4 mr-1.5 text-red-500" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                        </path>
+                                    </svg>
+                                    删除
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="fixed inset-0 z-50 overflow-y-auto" x-show="modal.show" style="display: none;">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true" @click="closeModal">
+                <div class="absolute inset-0 bg-gray-500 opacity-75 backdrop-blur-sm"></div>
+            </div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal panel -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full"
+                x-show="modal.show" x-transition:enter="ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900"
+                                x-text="modal.type === 'new' ? '新建文章' : '编辑文章'"></h3>
+                            <div class="mt-4 space-y-4">
+                                <!-- Filename & Directory -->
+                                <div class="flex space-x-4">
+                                    <div class="w-1/4">
+                                        <label class="block text-sm font-medium text-gray-700">分类</label>
+                                        <select x-model="modal.directory"
+                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border">
+                                            <option value="tech">技术栈志 (tech)</option>
+                                            <option value="life">生活拾撷 (life)</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="block text-sm font-medium text-gray-700">文件名</label>
+                                        <input type="text" x-model="modal.filename" placeholder="example.md"
+                                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border p-2">
+                                    </div>
+                                </div>
+                                <!-- Editor -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">内容 (Markdown)</label>
+                                    <textarea x-model="modal.content" rows="15"
+                                        class="mt-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md font-mono p-2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="saveFile"
+                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        保存
+                    </button>
+                    <button type="button" @click="closeModal"
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        取消
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // 获取文件列表
-        function loadFileList() {
-            fetch('/api/files')
-                .then(res => res.json())
-                .then(files => {
-                    const fileList = document.getElementById('fileList');
-                    fileList.innerHTML = '';
+        function adminApp() {
+            return {
+                files: [],
+                searchQuery: '',
+                isBuilding: false,
+                toast: { show: false, message: '' },
+                modal: {
+                    show: false,
+                    type: 'new', // 'new' or 'edit'
+                    directory: 'tech',
+                    filename: '',
+                    content: '',
+                    originalFilename: '' // for tracking edits
+                },
 
-                    files.forEach(file => {
-                        const li = document.createElement('li');
-                        li.textContent = file;
-                        li.onclick = () => loadFile(file);
-                        fileList.appendChild(li);
-                    });
-                })
-                .catch(err => console.error('获取文件列表失败:', err));
+                init() {
+                    this.loadFileList();
+                },
+
+                get filteredFiles() {
+                    if (!this.searchQuery) return this.files;
+                    return this.files.filter(f => f.toLowerCase().includes(this.searchQuery.toLowerCase()));
+                },
+
+                showToastMsg(msg) {
+                    this.toast.message = msg;
+                    this.toast.show = true;
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                },
+
+                loadFileList() {
+                    fetch('/api/files')
+                        .then(res => res.json())
+                        .then(files => {
+                            // Sort files: tech first, then life, then others
+                            this.files = files.sort();
+                        })
+                        .catch(err => {
+                            console.error('Failed to load files:', err);
+                            this.showToastMsg('加载文件列表失败');
+                        });
+                },
+
+                rebuildSite() {
+                    this.isBuilding = true;
+                    fetch('/api/build', { method: 'POST' })
+                        .then(res => {
+                            // Simulate a slight delay for better UX if response is too fast
+                            setTimeout(() => {
+                                this.isBuilding = false;
+                                if (res.ok) {
+                                    this.showToastMsg('站点构建成功');
+                                } else {
+                                    this.showToastMsg('站点构建失败');
+                                }
+                            }, 1000);
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            this.isBuilding = false;
+                            this.showToastMsg('请求失败');
+                        });
+                },
+
+                openModal(type, file = null) {
+                    this.modal.type = type;
+                    this.modal.show = true;
+
+                    if (type === 'edit' && file) {
+                        const relativeFilename = file;
+                        this.modal.originalFilename = relativeFilename;
+
+                        // Determine directory and filename
+                        if (relativeFilename.startsWith('tech/')) {
+                            this.modal.directory = 'tech';
+                            this.modal.filename = relativeFilename.replace('tech/', '');
+                        } else if (relativeFilename.startsWith('life/')) {
+                            this.modal.directory = 'life';
+                            this.modal.filename = relativeFilename.replace('life/', '');
+                        } else {
+                            this.modal.directory = 'tech';
+                            this.modal.filename = relativeFilename;
+                        }
+
+                        // Load content
+                        fetch(`/api/files/${relativeFilename}`)
+                            .then(res => res.text())
+                            .then(content => {
+                                this.modal.content = content;
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                this.showToastMsg('加载文件内容失败');
+                            });
+                    } else {
+                        // Reset for new file
+                        this.modal.directory = 'tech';
+                        this.modal.filename = '';
+                        this.modal.content = '';
+                        this.modal.originalFilename = '';
+                    }
+                },
+
+                closeModal() {
+                    this.modal.show = false;
+                },
+
+                saveFile() {
+                    if (!this.modal.filename) {
+                        alert('请输入文件名');
+                        return;
+                    }
+
+                    let fullFilename = this.modal.filename;
+                    if (!fullFilename.startsWith('tech/') && !fullFilename.startsWith('life/')) {
+                        fullFilename = `${this.modal.directory}/${this.modal.filename}`;
+                    }
+
+                    fetch('/api/files', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            filename: fullFilename,
+                            content: this.modal.content,
+                            originalFilename: this.modal.originalFilename
+                        })
+                    })
+                        .then(res => {
+                            if (res.ok) {
+                                this.showToastMsg('文件保存成功');
+                                this.closeModal();
+                                this.loadFileList();
+                            } else {
+                                this.showToastMsg('保存失败');
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            this.showToastMsg('保存出错');
+                        });
+                },
+
+                deleteFile(file) {
+                    if (!confirm(`确定要删除文件 ${file} 吗？`)) return;
+
+                    const relativePath = file;
+
+                    fetch(`/api/files/${relativePath}`, { method: 'DELETE' })
+                        .then(res => {
+                            if (res.ok) {
+                                this.showToastMsg('文件删除成功');
+                                this.loadFileList();
+                            } else {
+                                this.showToastMsg('删除失败');
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            this.showToastMsg('删除出错');
+                        });
+                }
+            }
         }
-
-        // 加载文件内容
-        function loadFile(filename) {
-            const relativeFilename = filename.replace('/app/frontend/docs/', '');
-
-            if (relativeFilename.startsWith('tech/')) {
-                document.getElementById('directory').value = 'tech';
-            } else if (relativeFilename.startsWith('life/')) {
-                document.getElementById('directory').value = 'life';
-            }
-
-            fetch(`/api/files/${relativeFilename}`)
-                .then(res => res.text())
-                .then(content => {
-                    const displayFilename = relativeFilename.replace(/^(tech|life)\//, '');
-                    document.getElementById('filename').value = displayFilename;
-                    document.getElementById('editor').value = content;
-                })
-                .catch(err => console.error('加载文件失败:', err));
-        }
-
-        // 保存文件
-        document.getElementById('saveFile').addEventListener('click', () => {
-            let filename = document.getElementById('filename').value;
-            const content = document.getElementById('editor').value;
-            const directory = document.getElementById('directory').value;
-
-            if (!filename) {
-                alert('请输入文件名');
-                return;
-            }
-
-            if (!filename.startsWith('tech/') && !filename.startsWith('life/')) {
-                filename = `${directory}/${filename}`;
-            }
-
-            fetch('/api/files', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename, content })
-            })
-                .then(res => {
-                    if (res.ok) {
-                        alert('文件保存成功');
-                        loadFileList();
-                    } else {
-                        alert('保存失败');
-                    }
-                })
-                .catch(err => console.error('保存文件失败:', err));
-        });
-
-        // 删除文件
-        document.getElementById('deleteFile').addEventListener('click', () => {
-            const filename = document.getElementById('filename').value;
-
-            if (!filename) {
-                alert('请选择要删除的文件');
-                return;
-            }
-
-            if (!confirm(`确定要删除文件 ${filename} 吗？`)) {
-                return;
-            }
-
-            const relativePath = filename.replace('/app/frontend/docs/', '');
-
-            fetch(`/api/files/${relativePath}`, {
-                method: 'DELETE'
-            })
-                .then(res => {
-                    if (res.ok) {
-                        alert('文件删除成功');
-                        document.getElementById('filename').value = '';
-                        document.getElementById('editor').value = '';
-                        loadFileList();
-                    } else {
-                        alert('删除失败');
-                    }
-                })
-                .catch(err => console.error('删除文件失败:', err));
-        });
-
-        // 新建文件
-        document.getElementById('newFile').addEventListener('click', () => {
-            document.getElementById('filename').value = '';
-            document.getElementById('editor').value = '';
-        });
-
-        // 构建站点
-        document.getElementById('buildSite').addEventListener('click', () => {
-            fetch('/api/build', { method: 'POST' })
-                .then(res => {
-                    if (res.ok) {
-                        alert('站点构建成功');
-                    } else {
-                        alert('站点构建失败');
-                    }
-                })
-                .catch(err => console.error('构建站点失败:', err));
-        });
-
-        // 初始加载
-        loadFileList();
     </script>
 </body>
 
