@@ -329,7 +329,7 @@
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "SELECT ROUND(COUNT(CASE WHEN event_duration < 10 THEN 1 END)::float / NULLIF(COUNT(*), 0) * 100, 2) as value FROM track_event WHERE event_type = 'PAGEVIEW' AND created_at >= NOW() - INTERVAL '30 days'",
+                    "rawSql": "SELECT COALESCE(ROUND(COUNT(CASE WHEN event_duration < 10 THEN 1 END)::NUMERIC / NULLIF(COUNT(*), 0) * 100, 2), 0) as value FROM track_event WHERE event_type = 'PAGEVIEW' AND created_at >= NOW() - INTERVAL '30 days'",
                     "refId": "A",
                     "select": [
                         [
@@ -438,7 +438,7 @@
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "SELECT date_trunc('day', created_at) as time, COUNT(*) as value FROM track_event WHERE event_type = 'PAGEVIEW' AND created_at >= NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+                    "rawSql": "SELECT date_trunc('day', created_at) as time, COUNT(*) as \"页面浏览量\" FROM track_event WHERE event_type = 'PAGEVIEW' AND created_at >= NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
                     "refId": "A",
                     "select": [
                         [
@@ -501,6 +501,13 @@
                 "tooltip": {
                     "mode": "single",
                     "sort": "none"
+                },
+                "reduceOptions": {
+                    "values": true,
+                    "fields": "",
+                    "calcs": [
+                        "lastNotNull"
+                    ]
                 }
             },
             "pluginVersion": "10.2.3",
@@ -514,7 +521,7 @@
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "SELECT page_path as metric, COUNT(*) as value FROM track_event WHERE event_type = 'PAGEVIEW' AND page_path != '/' AND created_at >= NOW() - INTERVAL '30 days' GROUP BY page_path ORDER BY value DESC LIMIT 5",
+                    "rawSql": "SELECT page_path, COUNT(*) as \"访问量\" FROM track_event WHERE event_type = 'PAGEVIEW' AND page_path != '/' AND created_at >= NOW() - INTERVAL '30 days' GROUP BY page_path ORDER BY COUNT(*) DESC LIMIT 5",
                     "refId": "A",
                     "select": [
                         [
@@ -577,6 +584,13 @@
                 "tooltip": {
                     "mode": "single",
                     "sort": "none"
+                },
+                "reduceOptions": {
+                    "values": true,
+                    "fields": "",
+                    "calcs": [
+                        "lastNotNull"
+                    ]
                 }
             },
             "pluginVersion": "10.2.3",
@@ -590,7 +604,7 @@
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "SELECT CASE WHEN platform LIKE '%Windows%' THEN 'Windows' ELSE platform END as metric, COUNT(*) as value FROM track_event WHERE created_at >= NOW() - INTERVAL '30 days' AND platform IS NOT NULL GROUP BY 1 ORDER BY value DESC",
+                    "rawSql": "SELECT CASE WHEN platform LIKE '%Windows%' THEN 'Windows' WHEN platform LIKE '%macOS%' THEN 'macOS' WHEN platform LIKE '%Linux%' THEN 'Linux' WHEN platform LIKE '%Android%' THEN 'Android' WHEN platform LIKE '%iOS%' THEN 'iOS' ELSE COALESCE(platform, 'Unknown') END as \"平台\", COUNT(*) as \"访问量\" FROM track_event WHERE created_at >= NOW() - INTERVAL '30 days' AND platform IS NOT NULL GROUP BY 1 ORDER BY COUNT(*) DESC",
                     "refId": "A",
                     "select": [
                         [

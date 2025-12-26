@@ -62,9 +62,18 @@ func GetAllFiles() ([]string, error) {
 				return err
 			}
 			if !info.IsDir() && (strings.HasSuffix(info.Name(), ".md") || strings.HasSuffix(info.Name(), ".markdown")) {
-				// 使用完整路径
-				log.Printf("找到文章: %s", path)
-				allFiles = append(allFiles, path)
+				// 获取相对路径
+				relPath, err := filepath.Rel(dir, path)
+				if err != nil {
+					log.Printf("获取相对路径失败: %v", err)
+					return nil
+				}
+				// 加上目录前缀 (tech/ or life/)
+				category := filepath.Base(dir)
+				finalPath := filepath.ToSlash(filepath.Join(category, relPath))
+
+				log.Printf("找到文章: %s", finalPath)
+				allFiles = append(allFiles, finalPath)
 			}
 			return nil
 		})
@@ -85,7 +94,7 @@ func GetAllFiles() ([]string, error) {
 // 获取文件内容
 func GetFileContent(filename string) (string, error) {
 	// 清理文件名，防止目录遍历攻击
-	filename = filepath.Clean(filename)
+	filename = filepath.ToSlash(filepath.Clean(filename))
 	if strings.Contains(filename, "..") {
 		return "", fmt.Errorf("无效的文件名")
 	}
@@ -119,8 +128,12 @@ func GetFileContent(filename string) (string, error) {
 
 // 保存文件
 func SaveFile(filename string, content string) error {
+	log.Printf("SaveFile: 开始保存文件, 原始文件名: %s", filename)
+
 	// 清理文件名，防止目录遍历攻击
-	filename = filepath.Clean(filename)
+	filename = filepath.ToSlash(filepath.Clean(filename))
+	log.Printf("SaveFile: 清理后的文件名: %s", filename)
+
 	if strings.Contains(filename, "..") {
 		return fmt.Errorf("无效的文件名")
 	}
@@ -156,26 +169,37 @@ title: %s
 	if strings.HasPrefix(filename, "tech/") {
 		targetDir = ArticlesDirs[0]
 		targetFilename = strings.TrimPrefix(filename, "tech/")
+		log.Printf("SaveFile: 匹配到 tech 目录")
 	} else if strings.HasPrefix(filename, "life/") {
 		targetDir = ArticlesDirs[1]
 		targetFilename = strings.TrimPrefix(filename, "life/")
+		log.Printf("SaveFile: 匹配到 life 目录")
 	} else {
 		// 如果没有前缀，默认保存到tech目录
 		targetDir = ArticlesDirs[0]
+		log.Printf("SaveFile: 未匹配到前缀，默认使用 tech 目录")
 	}
 
 	fullPath := filepath.Join(targetDir, targetFilename)
+	log.Printf("SaveFile: 最终保存路径: %s", fullPath)
+
 	// 确保目标目录存在
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+		log.Printf("SaveFile: 创建目录失败: %v", err)
 		return err
 	}
-	return ioutil.WriteFile(fullPath, []byte(content), 0644)
+	if err := ioutil.WriteFile(fullPath, []byte(content), 0644); err != nil {
+		log.Printf("SaveFile: 写入文件失败: %v", err)
+		return err
+	}
+	log.Printf("SaveFile: 文件保存成功")
+	return nil
 }
 
 // 删除文件
 func DeleteFile(filename string) error {
 	// 清理文件名，防止目录遍历攻击
-	filename = filepath.Clean(filename)
+	filename = filepath.ToSlash(filepath.Clean(filename))
 	if strings.Contains(filename, "..") {
 		log.Printf("检测到非法的文件路径: %s", filename)
 		return fmt.Errorf("无效的文件名")
@@ -231,15 +255,21 @@ func UpdateSidebarConfig() error {
 	var sidebarItems string
 	for _, file := range files {
 		// 获取相对路径，去掉前缀部分
-		relPath := file
+		var relPath string
+		var category string
+
 		for _, dir := range ArticlesDirs {
 			if strings.HasPrefix(file, dir) {
 				relPath = strings.TrimPrefix(file, dir+"/")
+				category = filepath.Base(dir)
 				break
 			}
 		}
-		title := strings.TrimSuffix(strings.TrimSuffix(relPath, ".md"), ".markdown")
-		sidebarItems += fmt.Sprintf("          { text: '%s', link: '/%s' },\n", title, relPath)
+
+		if relPath != "" {
+			title := strings.TrimSuffix(strings.TrimSuffix(relPath, ".md"), ".markdown")
+			sidebarItems += fmt.Sprintf("          { text: '%s', link: '/%s/%s' },\n", title, category, title)
+		}
 	}
 
 	// 读取现有配置文件

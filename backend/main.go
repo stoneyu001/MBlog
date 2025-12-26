@@ -28,8 +28,9 @@ func getEnv(key, defaultValue string) string {
 
 // 文件操作请求结构
 type FileRequest struct {
-	Filename string `json:"filename"`
-	Content  string `json:"content"`
+	Filename         string `json:"filename"`
+	Content          string `json:"content"`
+	OriginalFilename string `json:"originalFilename"` // 用于重命名检测
 }
 
 func main() {
@@ -169,6 +170,19 @@ func main() {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(400, gin.H{"error": "请求参数错误"})
 			return
+		}
+
+		// 检查是否需要重命名（删除旧文件）
+		if req.OriginalFilename != "" && req.OriginalFilename != req.Filename {
+			log.Printf("检测到重命名操作: %s -> %s", req.OriginalFilename, req.Filename)
+			// 尝试删除旧文件
+			// 注意：我们需要处理 OriginalFilename，因为它可能是绝对路径或相对路径
+			// filemanager.DeleteFile 会自动处理前缀
+			if err := filemanager.DeleteFile(req.OriginalFilename); err != nil {
+				log.Printf("重命名时删除旧文件失败: %v", err)
+				// 这里我们可以选择报错，或者继续保存新文件但保留旧文件
+				// 为了数据安全，我们继续保存新文件，但记录错误
+			}
 		}
 
 		if err := filemanager.SaveFile(req.Filename, req.Content); err != nil {
