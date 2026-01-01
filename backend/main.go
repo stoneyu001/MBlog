@@ -98,6 +98,7 @@ func main() {
 
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)
+	analyticsService := tracking.NewAnalyticsService(db)
 
 	// 初始化评论服务
 	commentService := comments.NewCommentService(db)
@@ -132,6 +133,17 @@ func main() {
 
 	// 注册跟踪API处理程序
 	trackingService.RegisterHandlers(r)
+
+	// 注册统计分析API
+	r.GET("/api/analytics", func(c *gin.Context) {
+		stats, err := analyticsService.GetFullStats()
+		if err != nil {
+			log.Printf("获取统计数据失败: %v", err)
+			c.JSON(500, gin.H{"error": "获取统计数据失败"})
+			return
+		}
+		c.JSON(200, stats)
+	})
 
 	// 注册评论API处理程序
 	commentService.RegisterHandlers(r)
@@ -314,6 +326,7 @@ func main() {
 	// 托管管理界面
 	r.StaticFile("/admin", "/app/static/admin.html")
 	r.StaticFile("/admin/", "/app/static/admin.html")
+	r.StaticFile("/analytics", "/app/static/analytics.html")
 	r.Static("/static", "/app/static")
 
 	// 启动服务

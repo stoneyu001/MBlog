@@ -47,8 +47,12 @@
 
             <div class="flex-1 flex flex-col justify-between p-4">
                 <nav class="space-y-2">
-                    <a href="#" class="flex items-center px-4 py-2 text-gray-700 bg-gray-100 rounded-md group">
-                        <svg class="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="#" @click.prevent="currentView = 'files'"
+                        class="flex items-center px-4 py-2 rounded-md group transition-colors"
+                        :class="currentView === 'files' ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'">
+                        <svg class="w-5 h-5 mr-3"
+                            :class="currentView === 'files' ? 'text-gray-500' : 'text-gray-400 group-hover:text-gray-500'"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
                             </path>
@@ -56,10 +60,12 @@
                         <span class="font-medium">文件管理</span>
                     </a>
 
-                    <a href="http://localhost:3001/d/mblog-analytics" target="_blank"
-                        class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md group transition-colors">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-gray-500" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="#" @click.prevent="currentView = 'analytics'"
+                        class="flex items-center px-4 py-2 rounded-md group transition-colors"
+                        :class="currentView === 'analytics' ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'">
+                        <svg class="w-5 h-5 mr-3"
+                            :class="currentView === 'analytics' ? 'text-gray-500' : 'text-gray-400 group-hover:text-gray-500'"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
                             </path>
@@ -87,115 +93,127 @@
         </aside>
 
         <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-gray-50">
-            <header class="bg-white border-b border-gray-200 shadow-sm z-10">
-                <div class="px-6 py-4 flex items-center justify-between">
-                    <button class="md:hidden mr-4 text-gray-500 focus:outline-none">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                    </button>
-
-                    <div class="flex-1 max-w-2xl">
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                            <input x-model="searchQuery" type="text"
-                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
-                                placeholder="搜索文章...">
-                        </div>
-                    </div>
-
-                    <div class="ml-4 flex items-center">
-                        <button @click="openModal('new')"
-                            class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- Files View -->
+            <div class="flex flex-col h-full" x-show="currentView === 'files'">
+                <header class="bg-white border-b border-gray-200 shadow-sm z-10">
+                    <div class="px-6 py-4 flex items-center justify-between">
+                        <button class="md:hidden mr-4 text-gray-500 focus:outline-none">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4"></path>
+                                    d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
-                            新建文章
                         </button>
-                    </div>
-                </div>
-            </header>
 
-            <main class="flex-1 overflow-y-auto p-6">
-                <div class="mb-4 flex items-center justify-between">
-                    <h2 class="text-lg font-medium text-gray-900">文章列表</h2>
-                    <span class="text-sm text-gray-500" x-text="`共 ${filteredFiles.length} 篇`"></span>
-                </div>
-
-                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <template x-for="file in filteredFiles" :key="file">
-                        <div
-                            class="group bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200 flex flex-col">
-                            <div class="p-5 flex-1">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-shrink-0">
-                                        <div class="h-12 w-12 rounded-lg flex items-center justify-center transition-colors"
-                                            :class="file.includes('tech/') ? 'bg-blue-50 text-blue-600' : (file.includes('life/') ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-600')">
-                                            <svg x-show="file.includes('tech/')" class="h-6 w-6" fill="none"
-                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-                                            </svg>
-                                            <svg x-show="file.includes('life/')" class="h-6 w-6" fill="none"
-                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z">
-                                                </path>
-                                            </svg>
-                                            <svg x-show="!file.includes('tech/') && !file.includes('life/')"
-                                                class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                                                </path>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                        :class="file.includes('tech/') ? 'bg-blue-100 text-blue-800' : (file.includes('life/') ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800')"
-                                        x-text="file.split('/')[0] === file ? 'Root' : file.split('/')[0]">
-                                    </span>
-                                </div>
-                                <div class="mt-4">
-                                    <h3 class="text-base font-semibold text-gray-900 truncate"
-                                        x-text="file.split('/').pop()"></h3>
-                                </div>
-                            </div>
-
-                            <div class="border-t border-gray-100 px-5 py-3 bg-gray-50 flex space-x-2">
-                                <button @click="openModal('edit', file)"
-                                    class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                                    <svg class="h-4 w-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor"
+                        <div class="flex-1 max-w-2xl">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor"
                                         viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
-                                        </path>
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                     </svg>
-                                    编辑
-                                </button>
-                                <button @click="deleteFile(file)"
-                                    class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                                    <svg class="h-4 w-4 mr-1.5 text-red-500" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                                        </path>
-                                    </svg>
-                                    删除
-                                </button>
+                                </div>
+                                <input x-model="searchQuery" type="text"
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+                                    placeholder="搜索文章...">
                             </div>
                         </div>
-                    </template>
-                </div>
-            </main>
+
+                        <div class="ml-4 flex items-center">
+                            <button @click="openModal('new')"
+                                class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                新建文章
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="flex-1 overflow-y-auto p-6">
+                    <div class="mb-4 flex items-center justify-between">
+                        <h2 class="text-lg font-medium text-gray-900">文章列表</h2>
+                        <span class="text-sm text-gray-500" x-text="`共 ${filteredFiles.length} 篇`"></span>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        <template x-for="file in filteredFiles" :key="file">
+                            <div
+                                class="group bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200 flex flex-col">
+                                <div class="p-5 flex-1">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-12 w-12 rounded-lg flex items-center justify-center transition-colors"
+                                                :class="file.includes('tech/') ? 'bg-blue-50 text-blue-600' : (file.includes('life/') ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-600')">
+                                                <svg x-show="file.includes('tech/')" class="h-6 w-6" fill="none"
+                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4">
+                                                    </path>
+                                                </svg>
+                                                <svg x-show="file.includes('life/')" class="h-6 w-6" fill="none"
+                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z">
+                                                    </path>
+                                                </svg>
+                                                <svg x-show="!file.includes('tech/') && !file.includes('life/')"
+                                                    class="h-6 w-6" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                                    </path>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <span
+                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                            :class="file.includes('tech/') ? 'bg-blue-100 text-blue-800' : (file.includes('life/') ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800')"
+                                            x-text="file.split('/')[0] === file ? 'Root' : file.split('/')[0]">
+                                        </span>
+                                    </div>
+                                    <div class="mt-4">
+                                        <h3 class="text-base font-semibold text-gray-900 truncate"
+                                            x-text="file.split('/').pop()"></h3>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-gray-100 px-5 py-3 bg-gray-50 flex space-x-2">
+                                    <button @click="openModal('edit', file)"
+                                        class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                        <svg class="h-4 w-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                                            </path>
+                                        </svg>
+                                        编辑
+                                    </button>
+                                    <button @click="deleteFile(file)"
+                                        class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                        <svg class="h-4 w-4 mr-1.5 text-red-500" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                            </path>
+                                        </svg>
+                                        删除
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </main>
+            </div>
+
+            <!-- Analytics View -->
+            <div class="h-full w-full" x-show="currentView === 'analytics'" style="display: none;">
+                <iframe src="/analytics" class="w-full h-full border-0"></iframe>
+            </div>
         </div>
     </div>
 
@@ -262,6 +280,7 @@
     <script>
         function adminApp() {
             return {
+                currentView: 'files', // 'files' or 'analytics'
                 files: [],
                 searchQuery: '',
                 isBuilding: false,
@@ -322,6 +341,11 @@
                             this.isBuilding = false;
                             this.showToastMsg('请求失败');
                         });
+                },
+
+                openModal(type, file = null) {
+                    this.modal.type = type;
+                    this.modal.show = true;
                 },
 
                 openModal(type, file = null) {
