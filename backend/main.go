@@ -88,6 +88,14 @@ func main() {
 	log.Printf("数据库连接池配置完成: 最大连接=%d, 空闲连接=%d, 生命周期=%v",
 		25, 5, 5*time.Minute)
 
+	// 强制设置当前用户的默认客户端编码为 UTF8
+	// 这将确保 Grafana (使用相同用户) 连接时也默认使用 UTF8
+	if _, err := db.Exec("ALTER ROLE current_user SET client_encoding = 'UTF8'"); err != nil {
+		log.Printf("警告: 设置用户默认编码失败 (可能是权限不足): %v", err)
+	} else {
+		log.Printf("成功设置当前用户的默认客户端编码为 UTF8")
+	}
+
 	// 初始化跟踪服务
 	trackingService := tracking.NewTrackingService(db)
 
