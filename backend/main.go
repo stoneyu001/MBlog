@@ -319,6 +319,7 @@ func main() {
 	r.StaticFile("/admin", "/app/static/admin.html")
 	r.StaticFile("/admin/", "/app/static/admin.html")
 	r.StaticFile("/analytics", "/app/static/analytics.html")
+	r.StaticFile("/favicon.ico", "/app/static/favicon.ico")
 	r.Static("/static", "/app/static")
 
 	// 启动服务

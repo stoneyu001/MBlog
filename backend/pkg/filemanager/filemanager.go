@@ -7,14 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
-// 文章文件的目录
-var ArticlesDirs = []string{
-	"/app/frontend/docs/tech",
-	"/app/frontend/docs/life",
-}
+var (
+	ProjectRoot  string
+	FrontendDir  string
+	ArticlesDirs []string
+)
 
 // 获取工作目录
 func getWorkingDir() (string, error) {
@@ -29,6 +30,33 @@ func getWorkingDir() (string, error) {
 
 // 初始化文件管理器，确保目录存在
 func Init() error {
+	// Determine ProjectRoot
+	// Check for Docker environment first
+	if _, err := os.Stat("/app/frontend"); err == nil {
+		ProjectRoot = "/app"
+	} else {
+		// Local development
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		// If running from backend directory
+		if filepath.Base(wd) == "backend" {
+			ProjectRoot = filepath.Dir(wd)
+		} else {
+			ProjectRoot = wd
+		}
+	}
+
+	FrontendDir = filepath.Join(ProjectRoot, "frontend")
+	ArticlesDirs = []string{
+		filepath.Join(FrontendDir, "docs", "tech"),
+		filepath.Join(FrontendDir, "docs", "life"),
+	}
+
+	log.Printf("Project Root: %s", ProjectRoot)
+	log.Printf("Frontend Dir: %s", FrontendDir)
+
 	for _, dir := range ArticlesDirs {
 		log.Printf("检查目录是否存在: %s", dir)
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -208,7 +236,10 @@ func DeleteFile(filename string) error {
 	log.Printf("准备删除文件，清理后的路径: %s", filename)
 
 	// 处理文件路径
-	// 1. 移除可能存在的 /app/frontend/docs/ 前缀
+	// 1. 移除可能存在的 前缀
+	docsPrefix := filepath.ToSlash(filepath.Join(FrontendDir, "docs")) + "/"
+	filename = strings.TrimPrefix(filename, docsPrefix)
+	// 兼容旧的硬编码路径
 	filename = strings.TrimPrefix(filename, "/app/frontend/docs/")
 
 	// 2. 确定文件类别（tech 或 life）
@@ -259,9 +290,13 @@ func UpdateSidebarConfig() error {
 		var category string
 
 		for _, dir := range ArticlesDirs {
-			if strings.HasPrefix(file, dir) {
-				relPath = strings.TrimPrefix(file, dir+"/")
-				category = filepath.Base(dir)
+			// 将路径标准化为 Slash 分隔，以便比较
+			normDir := filepath.ToSlash(dir)
+			normFile := filepath.ToSlash(file)
+
+			if strings.HasPrefix(normFile, normDir) {
+				relPath = strings.TrimPrefix(normFile, normDir+"/")
+				category = filepath.Base(normDir)
 				break
 			}
 		}
@@ -273,7 +308,7 @@ func UpdateSidebarConfig() error {
 	}
 
 	// 读取现有配置文件
-	configPath := "/app/frontend/docs/.vitepress/config.mts"
+	configPath := filepath.Join(FrontendDir, "docs", ".vitepress", "config.mts")
 	content, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return err
@@ -302,9 +337,14 @@ func UpdateSidebarConfig() error {
 
 // 构建站点
 func BuildSite() error {
+	npmName := "npm"
+	if runtime.GOOS == "windows" {
+		npmName = "npm.cmd"
+	}
+
 	// 创建一个新的命令，设置工作目录
-	installCmd := exec.Command("npm", "install")
-	installCmd.Dir = "/app/frontend"
+	installCmd := exec.Command(npmName, "install")
+	installCmd.Dir = FrontendDir
 
 	// 设置命令的输出
 	var installOutput strings.Builder
@@ -318,8 +358,8 @@ func BuildSite() error {
 	}
 
 	// 创建构建命令
-	buildCmd := exec.Command("npm", "run", "build")
-	buildCmd.Dir = "/app/frontend"
+	buildCmd := exec.Command(npmName, "run", "build")
+	buildCmd.Dir = FrontendDir
 
 	// 设置命令的输出
 	var buildOutput strings.Builder

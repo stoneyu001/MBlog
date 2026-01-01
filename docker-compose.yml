@@ -79,6 +79,9 @@ services:
       TZ: Asia/Shanghai
     ports:
       - "${FRONTEND_PORT}:80"
+    volumes:
+      # 挂载后端构建的静态文件，实现动态更新
+      - ./frontend/docs/.vitepress/dist:/usr/share/nginx/html
     depends_on:
       backend:
         condition: service_healthy
