@@ -3,6 +3,7 @@ package tracking
 import (
 	"database/sql"
 	"log"
+	"net/url"
 )
 
 // AnalyticsService 处理统计分析
@@ -150,7 +151,7 @@ func (s *AnalyticsService) getTrendStats(days int) ([]DailyStats, error) {
 }
 
 func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
-	// 排除静态资源和管理页面
+	// 排除静态资源、管理页面和损坏的数据（包含?的记录）
 	query := `
 		SELECT 
 			page_path, 
@@ -159,6 +160,7 @@ func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
 		FROM track_event
 		WHERE page_path NOT LIKE '/static/%' 
 		  AND page_path NOT LIKE '/admin%'
+		  AND page_path NOT LIKE '%?%'
 		  AND page_path != ''
 		GROUP BY page_path
 		ORDER BY pv DESC
@@ -175,6 +177,10 @@ func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
 		var p PageStats
 		if err := rows.Scan(&p.Path, &p.PV, &p.UV); err != nil {
 			continue
+		}
+		// URL解码页面路径，将 %E6%95%B0 这样的编码转为中文
+		if decoded, err := url.QueryUnescape(p.Path); err == nil {
+			p.Path = decoded
 		}
 		p.Title = p.Path // 暂时用路径作为标题
 		results = append(results, p)
