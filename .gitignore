@@ -14,6 +14,8 @@ frontend/docs/.vitepress/dist/
 frontend/docs/.vitepress/cache/
 gin-bin
 **/gin-bin
+*.exe
+backend/blog.exe
 
 # 日志文件
 *.log

@@ -133,23 +133,6 @@ MBlog/
 │   │   ├── comments/      # 评论系统
 │   │   ├── filemanager/   # 文件管理
 │   │   └── tracking/      # 访问统计
-│   └── static/            # 静态资源
-├── frontend/              # VitePress 前端
-│   ├── docs/              # 文档源文件
-│   ├── nginx/             # Nginx 配置
-│   ├── Dockerfile         # 前端 Docker 构建文件
-│   └── package.json       # Node.js 依赖
-├── docker/                # Docker 相关配置（旧）
-├── docker-compose.yml     # Docker 编排配置
-├── .env.example           # 环境变量模板
-├── .env                   # 环境变量配置（需创建）
-└── README.md              # 项目文档
-```
-
-## 🔍 服务架构
-
-```mermaid
-graph LR
     A[用户] -->|HTTP:80| B[Frontend<br/>Nginx]
     A -->|HTTP:3000| C[Backend<br/>Go API]
     C -->|5432| D[(PostgreSQL<br/>Database)]
