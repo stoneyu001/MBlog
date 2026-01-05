@@ -34,11 +34,16 @@ RUN apk add --no-cache tzdata && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
 
-# 从构建阶段复制生成的静态文件
-COPY --from=builder /build/docs/.vitepress/dist /usr/share/nginx/html
+# 从构建阶段复制生成的静态文件到备份目录
+# 这样即使 volume 挂载覆盖 /usr/share/nginx/html，我们仍有备份
+COPY --from=builder /build/docs/.vitepress/dist /app/dist-backup
 
 # 复制 nginx 配置
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+
+# 复制并设置 entrypoint 脚本
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # 暴露端口
 EXPOSE 80
@@ -47,5 +52,5 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
 
-# 启动 Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# 使用 entrypoint 脚本启动
+ENTRYPOINT ["/docker-entrypoint.sh"]

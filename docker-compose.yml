@@ -80,7 +80,8 @@ services:
     ports:
       - "${FRONTEND_PORT}:80"
     volumes:
-      # 挂载后端构建的静态文件，实现动态更新
+      # 挂载后端构建的静态文件，支持"重构站点"功能实时更新
+      # 首次启动时，entrypoint 脚本会自动从预构建目录复制文件
       - ./frontend/docs/.vitepress/dist:/usr/share/nginx/html
     depends_on:
       backend:
