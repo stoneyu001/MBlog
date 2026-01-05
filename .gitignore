@@ -34,7 +34,3 @@ temp/
 .cursor/ 
 # 项目配置文件
 .env
-
-# Grafana 配置文件
-grafana/provisioning/datasources/postgres.yml
-*.backup

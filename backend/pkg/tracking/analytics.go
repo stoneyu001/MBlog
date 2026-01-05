@@ -139,7 +139,7 @@ func (s *AnalyticsService) getTrendStats(days int) ([]DailyStats, error) {
 	}
 	defer rows.Close()
 
-	var results []DailyStats
+	results := make([]DailyStats, 0)
 	for rows.Next() {
 		var d DailyStats
 		if err := rows.Scan(&d.Date, &d.PV, &d.UV); err != nil {
@@ -172,7 +172,7 @@ func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
 	}
 	defer rows.Close()
 
-	var results []PageStats
+	results := make([]PageStats, 0)
 	for rows.Next() {
 		var p PageStats
 		if err := rows.Scan(&p.Path, &p.PV, &p.UV); err != nil {
@@ -198,7 +198,7 @@ func (s *AnalyticsService) getCategoryStats(column string) ([]CategoryStats, err
 	}
 	defer rows.Close()
 
-	var results []CategoryStats
+	results := make([]CategoryStats, 0)
 	for rows.Next() {
 		var c CategoryStats
 		if err := rows.Scan(&c.Name, &c.Value); err != nil {
@@ -229,7 +229,7 @@ func (s *AnalyticsService) getMetadataStats(key string) ([]CategoryStats, error)
 	}
 	defer rows.Close()
 
-	var results []CategoryStats
+	results := make([]CategoryStats, 0)
 	for rows.Next() {
 		var c CategoryStats
 		if err := rows.Scan(&c.Name, &c.Value); err != nil {

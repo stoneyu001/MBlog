@@ -157,9 +157,9 @@
         }
 
         function renderTrendChart(trendData) {
-            const dates = trendData.map(item => item.date);
-            const pvData = trendData.map(item => item.pv);
-            const uvData = trendData.map(item => item.uv);
+            const dates = (trendData || []).map(item => item.date);
+            const pvData = (trendData || []).map(item => item.pv);
+            const uvData = (trendData || []).map(item => item.uv);
 
             trendChart.setOption({
                 tooltip: { trigger: 'axis' },
@@ -190,7 +190,7 @@
 
         function renderPagesChart(pagesData) {
             // 反转数据以在条形图中正确显示（Top 1在最上方）
-            const data = [...pagesData].reverse();
+            const data = [...(pagesData || [])].reverse();
             const paths = data.map(item => item.path); // 这里直接显示中文路径
             const pvData = data.map(item => item.pv);
 
