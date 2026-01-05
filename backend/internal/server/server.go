@@ -30,15 +30,18 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 
 	// 初始化跟踪服务
+	if err := tracking.InitSchema(db); err != nil {
+		log.Printf("初始化埋点数据库失败: %v", err)
+		// 不中断启动，但记录错误
+	}
 	trackingService := tracking.NewTrackingService(db)
 	analyticsService := tracking.NewAnalyticsService(db)
 
 	// 初始化评论服务
-	commentService := comments.NewCommentService(db)
-	if err := commentService.Init(); err != nil {
-		db.Close()
-		return nil, err
+	if err := comments.InitSchema(db); err != nil {
+		log.Printf("初始化评论数据库失败: %v", err)
 	}
+	commentService := comments.NewCommentService(db)
 
 	// 初始化文件管理器
 	if err := filemanager.Init(); err != nil {
