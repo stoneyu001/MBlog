@@ -65,8 +65,14 @@ function adminApp() {
 
         // --- API 模拟与交互 ---
         loadFileList() {
-            fetch('/api/files')
-                .then(res => res.json())
+            fetch('/api/files', { credentials: 'include' })
+                .then(res => {
+                    if (res.status === 401) {
+                        window.location.href = '/login';
+                        return [];
+                    }
+                    return res.json();
+                })
                 .then(files => { this.files = files.sort(); })
                 .catch(err => {
                     console.error('Failed to load files:', err);
@@ -76,7 +82,7 @@ function adminApp() {
 
         rebuildSite() {
             this.isBuilding = true;
-            fetch('/api/build', { method: 'POST' })
+            fetch('/api/build', { method: 'POST', credentials: 'include' })
                 .then(res => {
                     setTimeout(() => {
                         this.isBuilding = false;
@@ -107,7 +113,7 @@ function adminApp() {
                     this.modal.filename = file;
                 }
 
-                fetch(`/api/files/${file}`)
+                fetch(`/api/files/${file}`, { credentials: 'include' })
                     .then(res => res.text())
                     .then(content => { this.modal.content = content; })
                     .catch(() => this.showToastMsg('加载文件内容失败'));
@@ -131,6 +137,7 @@ function adminApp() {
             fetch('/api/files', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     filename: fullFilename,
                     content: this.modal.content,
@@ -147,7 +154,7 @@ function adminApp() {
 
         deleteFile(file) {
             if (!confirm(`确定要删除文件 ${file} 吗？`)) return;
-            fetch(`/api/files/${file}`, { method: 'DELETE' })
+            fetch(`/api/files/${file}`, { method: 'DELETE', credentials: 'include' })
                 .then(res => {
                     if (res.ok) {
                         this.showToastMsg('文件删除成功');
@@ -184,7 +191,7 @@ function adminApp() {
 
             this.showToastMsg('正在上传...');
 
-            fetch('/api/upload', { method: 'POST', body: formData })
+            fetch('/api/upload', { method: 'POST', body: formData, credentials: 'include' })
                 .then(res => res.json())
                 .then(data => {
                     if (data.failed > 0) {

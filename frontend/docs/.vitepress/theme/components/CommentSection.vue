@@ -173,9 +173,11 @@ const articleId = computed(() => {
   return simpleId || 'index';
 });
 
-// API基础URL配置
-const apiBaseUrl = 'http://localhost:3000'; // 开发环境
-// const apiBaseUrl = ''; // 生产环境使用相对路径
+// API基础URL配置 - 自动检测环境
+const apiBaseUrl = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:3000'  // 开发环境
+  : '';                       // 生产环境使用相对路径
 
 const loading = ref(false);
 const loadError = ref('');
@@ -252,7 +254,13 @@ async function loadComments() {
   } catch (error) {
     console.error('加载评论出错详细信息:', error);
     console.error('错误堆栈:', error.stack);
-    loadError.value = '加载评论失败，请稍后重试';
+    // 网络错误时，显示空评论列表而不是错误信息
+    if (error.message === 'Failed to fetch') {
+      console.log('网络错误，显示空评论列表');
+      comments.value = [];
+    } else {
+      loadError.value = '加载评论失败，请稍后重试';
+    }
   } finally {
     loading.value = false;
   }
