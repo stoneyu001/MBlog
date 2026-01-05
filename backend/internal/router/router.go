@@ -17,7 +17,7 @@ func SetupRouter(
 ) *gin.Engine {
 	r := gin.Default()
 
-	// 注册中间件
+	// 注册全局中间件
 	r.Use(middleware.CORS())
 	r.Use(trackingService.TrackingMiddleware())
 
@@ -26,31 +26,55 @@ func SetupRouter(
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	healthHandler := handler.NewHealthHandler()
 
-	// 注册路由
+	// ============================================
+	// 公开路由（无需登录）
+	// ============================================
 	// 健康检查
 	r.GET("/api/ping", healthHandler.Ping)
 
-	// 文件管理
-	r.GET("/api/files", fileHandler.GetAllFiles)
-	r.GET("/api/files/*filename", fileHandler.GetFileContent)
-	r.POST("/api/files", fileHandler.SaveFile)
-	r.DELETE("/api/files/*filename", fileHandler.DeleteFile)
-	r.POST("/api/build", fileHandler.BuildSite)
-	r.POST("/api/upload", fileHandler.UploadFiles)
+	// 登录页面和认证 API
+	r.StaticFile("/login", "/app/static/login.html")
+	r.StaticFile("/login/", "/app/static/login.html")
+	r.POST("/api/auth/login", middleware.Login)
+	r.POST("/api/auth/logout", middleware.Logout)
+	r.GET("/api/auth/check", middleware.CheckAuth)
 
-	// 统计分析
-	r.GET("/api/analytics", analyticsHandler.GetFullStats)
-
-	// 埋点和评论（由各自的包注册）
+	// 埋点和评论（由各自的包注册，公开访问）
 	trackingService.RegisterHandlers(r)
 	commentService.RegisterHandlers(r)
 
-	// 静态文件
-	r.StaticFile("/admin", "/app/static/admin.html")
-	r.StaticFile("/admin/", "/app/static/admin.html")
-	r.StaticFile("/analytics", "/app/static/analytics.html")
+	// 静态资源
 	r.StaticFile("/favicon.ico", "/app/static/favicon.ico")
 	r.Static("/static", "/app/static")
+
+	// ============================================
+	// 受保护路由（需要登录）
+	// ============================================
+	admin := r.Group("")
+	admin.Use(middleware.RequireAuth())
+	{
+		// 管理页面
+		admin.GET("/admin", func(c *gin.Context) {
+			c.File("/app/static/admin.html")
+		})
+		admin.GET("/admin/", func(c *gin.Context) {
+			c.File("/app/static/admin.html")
+		})
+		admin.GET("/analytics", func(c *gin.Context) {
+			c.File("/app/static/analytics.html")
+		})
+
+		// 文件管理 API
+		admin.GET("/api/files", fileHandler.GetAllFiles)
+		admin.GET("/api/files/*filename", fileHandler.GetFileContent)
+		admin.POST("/api/files", fileHandler.SaveFile)
+		admin.DELETE("/api/files/*filename", fileHandler.DeleteFile)
+		admin.POST("/api/build", fileHandler.BuildSite)
+		admin.POST("/api/upload", fileHandler.UploadFiles)
+
+		// 统计分析 API
+		admin.GET("/api/analytics", analyticsHandler.GetFullStats)
+	}
 
 	return r
 }
