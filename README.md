@@ -78,14 +78,31 @@ docker-compose up -d
 - 🗄️ 初始化 PostgreSQL 数据库
 - ✅ 启动所有服务
 
-### 4. 访问应用
+### 4. 配置管理后台密码
+
+复制密码模板并设置登录凭据：
+
+```bash
+# Windows PowerShell
+Copy-Item .htpasswd.example .htpasswd
+
+# Linux / macOS
+cp .htpasswd.example .htpasswd
+```
+
+默认凭据：
+- **用户名**：`admin`
+- **密码**：`admin123`
+
+> ⚠️ **生产环境请务必修改密码！** 使用 `htpasswd -c .htpasswd admin` 命令重新生成。
+
+### 5. 访问应用
 
 服务启动成功后，可以通过以下地址访问：
 
 - **前端网站**：http://localhost （端口 80）
-- **后端 API**：http://localhost:3000
-- **管理界面**：http://localhost:3000/admin
-- **API 测试**：http://localhost:3000/api/ping
+- **管理界面**：http://localhost/admin（需要登录）
+- **API 测试**：http://localhost/api/ping
 
 ## 📚 常用命令
 
