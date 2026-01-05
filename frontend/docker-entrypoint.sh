@@ -4,14 +4,11 @@
 # 功能：确保首次启动时有预构建的静态文件
 # ============================================
 
-# 检查挂载的目录是否为空（没有 index.html）
-if [ ! -f "/usr/share/nginx/html/index.html" ]; then
-    echo "检测到 html 目录为空，正在从预构建目录复制文件..."
-    cp -r /app/dist-backup/* /usr/share/nginx/html/
-    echo "文件复制完成"
-else
-    echo "html 目录已有文件，跳过复制"
-fi
+# 强制从预构建目录同步文件到挂载卷
+# 这确保了镜像中的最新构建（包含 CSS/JS）总是被使用
+echo "正在从预构建目录同步文件..."
+cp -rf /app/dist-backup/* /usr/share/nginx/html/
+echo "文件同步完成"
 
 # 启动 Nginx
 exec nginx -g "daemon off;"
