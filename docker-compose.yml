@@ -14,10 +14,9 @@ services:
       PGTZ: Asia/Shanghai
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
       LANG: C.UTF-8
-    # 生产环境安全建议：不暴露数据库端口到外部
-    # 如需本地开发调试，可取消下面的注释
-    # ports:
-    #   - "${DB_PORT}:5432"
+    # 绑定到localhost,支持SSH隧道访问但不暴露到公网
+    ports:
+      - "127.0.0.1:${DB_PORT}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
