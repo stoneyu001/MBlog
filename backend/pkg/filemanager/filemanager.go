@@ -223,19 +223,39 @@ func BuildSite() error {
 		npmName = "npm.cmd"
 	}
 
-	log.Println("开始构建站点...")
+	log.Printf("开始构建站点...")
+	log.Printf("前端目录: %s", FrontendDir)
 
+	// 检查 npm 是否可用
+	checkCmd := exec.Command(npmName, "--version")
+	if out, err := checkCmd.CombinedOutput(); err != nil {
+		log.Printf("npm 检查失败: %v, 输出: %s", err, string(out))
+		return fmt.Errorf("npm 不可用: %v", err)
+	} else {
+		log.Printf("npm 版本: %s", strings.TrimSpace(string(out)))
+	}
+
+	// 执行 npm install
+	log.Printf("执行 npm install...")
 	cmd := exec.Command(npmName, "install")
 	cmd.Dir = FrontendDir
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("npm install 失败: %v\n%s", err, string(out))
+		log.Printf("npm install 失败: %v", err)
+		log.Printf("npm install 输出: %s", string(out))
+		return fmt.Errorf("npm install 失败: %v", err)
 	}
+	log.Printf("npm install 完成")
 
+	// 执行 npm run build
+	log.Printf("执行 npm run build...")
 	cmd = exec.Command(npmName, "run", "build")
 	cmd.Dir = FrontendDir
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("npm run build 失败: %v\n%s", err, string(out))
+		log.Printf("npm run build 失败: %v", err)
+		log.Printf("npm run build 输出: %s", string(out))
+		return fmt.Errorf("npm run build 失败: %v", err)
 	}
+	log.Printf("npm run build 完成")
 
 	log.Println("站点构建成功")
 	return nil

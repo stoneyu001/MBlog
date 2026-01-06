@@ -26,14 +26,14 @@ func NewFileHandler() *FileHandler {
 
 // GetAllFiles 获取所有文件
 func (h *FileHandler) GetAllFiles(c *gin.Context) {
-	log.Printf("收到获取文件列表请求")
+
 	files, err := filemanager.GetAllFiles()
 	if err != nil {
 		log.Printf("获取文件列表失败: %v", err)
 		c.JSON(500, gin.H{"error": fmt.Sprintf("获取文件列表失败: %v", err)})
 		return
 	}
-	log.Printf("成功获取文件列表，文件数量: %d", len(files))
+
 	c.JSON(200, files)
 }
 
@@ -44,14 +44,14 @@ func (h *FileHandler) GetFileContent(c *gin.Context) {
 	if len(filename) > 0 && filename[0] == '/' {
 		filename = filename[1:]
 	}
-	log.Printf("收到获取文件内容请求: %s", filename)
+
 	content, err := filemanager.GetFileContent(filename)
 	if err != nil {
 		log.Printf("获取文件内容失败: %v", err)
 		c.JSON(404, gin.H{"error": fmt.Sprintf("文件不存在或无法读取: %v", err)})
 		return
 	}
-	log.Printf("成功获取文件内容: %s", filename)
+
 	c.String(200, content)
 }
 
@@ -87,12 +87,11 @@ func (h *FileHandler) SaveFile(c *gin.Context) {
 // DeleteFile 删除文件
 func (h *FileHandler) DeleteFile(c *gin.Context) {
 	filename := c.Param("filename")
-	log.Printf("收到删除文件请求，原始路径: %s", filename)
 
 	// 移除路径参数前面的斜杠
 	if len(filename) > 0 && filename[0] == '/' {
 		filename = filename[1:]
-		log.Printf("处理后的文件路径: %s", filename)
+
 	}
 
 	if err := filemanager.DeleteFile(filename); err != nil {
@@ -106,11 +105,9 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		log.Printf("更新侧边栏配置失败: %v", err)
 	}
 
-	log.Printf("文件删除成功: %s", filename)
 	c.JSON(200, gin.H{"status": "success"})
 }
 
-// BuildSite 构建站点
 func (h *FileHandler) BuildSite(c *gin.Context) {
 	if err := filemanager.BuildSite(); err != nil {
 		c.JSON(500, gin.H{"error": "构建失败"})
@@ -132,7 +129,6 @@ func (h *FileHandler) UploadFiles(c *gin.Context) {
 	var errorMsgs []string
 
 	for _, file := range files {
-		log.Printf("正在处理上传文件: %s", file.Filename)
 
 		src, err := file.Open()
 		if err != nil {

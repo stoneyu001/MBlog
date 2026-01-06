@@ -48,9 +48,5 @@ RUN chmod +x /docker-entrypoint.sh
 # 暴露端口
 EXPOSE 80
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
-
 # 使用 entrypoint 脚本启动
 ENTRYPOINT ["/docker-entrypoint.sh"]

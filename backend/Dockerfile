@@ -61,9 +61,5 @@ RUN chmod +x /app/blog
 # 暴露端口
 EXPOSE 3000
 
-# 健康检查（可选，但推荐）
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/ping || exit 1
-
 # 启动应用
 CMD ["./blog"]

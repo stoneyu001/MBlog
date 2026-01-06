@@ -26,8 +26,7 @@ func init() {
 		chinaLocation = time.FixedZone("CST", 8*60*60)
 	}
 
-	// 输出当前时区和时间，用于调试
-	log.Printf("初始化时区: %s, 当前时间: %s", chinaLocation.String(), time.Now().In(chinaLocation).Format("2006-01-02 15:04:05"))
+	// 时区初始化完成
 
 	// 启动后台缓存清理任务
 	go backgroundCacheCleaner()
@@ -38,7 +37,7 @@ func backgroundCacheCleaner() {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
-	log.Println("后台缓存清理器已启动，每小时执行一次")
+	// 后台缓存清理器已启动
 
 	for range ticker.C {
 		cleanExpiredCache()
@@ -51,7 +50,6 @@ func cleanExpiredCache() {
 	defer cacheMutex.Unlock()
 
 	now := time.Now().UnixMilli()
-	beforeCount := len(lastEventCache)
 
 	for sid, data := range lastEventCache {
 		if now-data.Timestamp > 3600000 { // 1小时 = 3600000毫秒
@@ -59,8 +57,7 @@ func cleanExpiredCache() {
 		}
 	}
 
-	afterCount := len(lastEventCache)
-	log.Printf("缓存清理完成: 清理前=%d, 清理后=%d, 已删除=%d", beforeCount, afterCount, beforeCount-afterCount)
+	// 缓存已清理
 }
 
 // 确保数据库连接使用UTF8编码
@@ -112,24 +109,18 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		if clientTime.After(minTime) {
 			eventTime = clientTime
 		} else {
-			log.Printf("警告: timestamp过旧(%d)，使用服务器时间，session=%s",
-				req.Timestamp, req.SessionID)
+			// timestamp过旧，使用服务器时间
 			eventTime = time.Now().In(chinaLocation)
 		}
 	} else {
-		log.Printf("警告: timestamp为空或无效(%d)，使用服务器时间，session=%s, type=%s",
-			req.Timestamp, req.SessionID, req.EventType)
+		// timestamp无效，使用服务器时间
 		eventTime = time.Now().In(chinaLocation)
 	}
-
-	// 记录当前处理的时间信息，用于调试
-	log.Printf("事件时间处理: timestamp=%d, 转换后时间=%s, 时区=%s",
-		req.Timestamp, eventTime.Format("2006-01-02 15:04:05"), eventTime.Location().String())
 
 	// 确保必要字段有值
 	if req.EventType == "" {
 		req.EventType = "UNKNOWN"
-		log.Printf("警告: 事件类型为空，使用默认值")
+
 	}
 
 	// 验证并智能处理platform字段
@@ -139,7 +130,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	}
 
 	// 智能解析platform：处理前端发送的"OS/Browser"格式
-	originalPlatform := req.Platform
 	var extractedBrowser string
 
 	// 如果包含"/"，说明是"OS/Browser"格式，需要拆分
@@ -148,8 +138,7 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		if len(parts) >= 2 {
 			req.Platform = parts[0]     // OS部分作为platform
 			extractedBrowser = parts[1] // Browser部分单独保存
-			log.Printf("解析platform格式: '%s' → OS='%s', Browser='%s'",
-				originalPlatform, req.Platform, extractedBrowser)
+
 		}
 	}
 
@@ -157,7 +146,7 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	if req.Platform == "" || req.Platform == "unknown" || !validPlatforms[req.Platform] {
 		// 记录原始值（如果有）
 		if req.Platform != "" && req.Platform != "unknown" {
-			log.Printf("警告: platform值不规范 '%s'，将从UserAgent提取", req.Platform)
+
 		}
 
 		// 从user_agent中提取平台信息
@@ -166,7 +155,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		req.Platform = platform
 		extractedBrowser = browser // 使用UserAgent提取的浏览器
 
-		log.Printf("从UserAgent提取信息: platform=%s, browser=%s", platform, browser)
 	}
 
 	// 将浏览器信息保存到metadata中
@@ -180,7 +168,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		}
 		req.Metadata["user_agent"] = c.Request.UserAgent()
 
-		log.Printf("浏览器信息已保存到metadata: browser=%s", extractedBrowser)
 	}
 
 	// 优化event_duration计算：计算任意两个事件之间的时间差
@@ -195,14 +182,9 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 			// 上限设为1小时（3600秒），避免异常值
 			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
 
-			log.Printf("计算事件持续时间: %d秒 (从 %s[t=%d] 到 %s[t=%d], 时间差=%dms)",
-				req.EventDuration, lastEvent.EventType, lastEvent.Timestamp,
-				req.EventType, req.Timestamp, durationMs)
-		} else if !exists {
-			log.Printf("首次事件，无法计算持续时间: session=%s, type=%s", req.SessionID, req.EventType)
+			// 计算事件持续时间
+			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
 		}
-	} else {
-		log.Printf("使用前端提供的event_duration: %d秒", req.EventDuration)
 	}
 
 	// 始终更新最后一次事件信息（用于下次计算）
@@ -217,15 +199,12 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	pagePath := req.PagePath
 	if pagePath == "" {
 		pagePath = "/"
-		log.Printf("警告: 页面路径为空，使用默认值: /")
+
 	} else {
 		decodedPath, err := url.QueryUnescape(pagePath)
 		if err != nil {
-			log.Printf("页面路径URL解码失败: %v, 使用原始路径: %s", err, pagePath)
+			// URL解码失败
 		} else {
-			if decodedPath != pagePath {
-				log.Printf("页面路径URL解码: %s -> %s", pagePath, decodedPath)
-			}
 			pagePath = decodedPath
 		}
 	}
@@ -235,11 +214,8 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	if elementPath != "" {
 		decodedPath, err := url.QueryUnescape(elementPath)
 		if err != nil {
-			log.Printf("元素路径URL解码失败: %v, 使用原始路径: %s", err, elementPath)
+			// URL解码失败
 		} else {
-			if decodedPath != elementPath {
-				log.Printf("元素路径URL解码: %s -> %s", elementPath, decodedPath)
-			}
 			elementPath = decodedPath
 		}
 	}
@@ -249,11 +225,8 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	if referrer != "" {
 		decodedURL, err := url.QueryUnescape(referrer)
 		if err != nil {
-			log.Printf("来源URL解码失败: %v, 使用原始URL: %s", err, referrer)
+			// URL解码失败
 		} else {
-			if decodedURL != referrer {
-				log.Printf("来源URL解码: %s -> %s", referrer, decodedURL)
-			}
 			referrer = decodedURL
 		}
 	}
@@ -266,7 +239,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 			if strings.Contains(key, "url") || strings.Contains(key, "path") || strings.Contains(key, "link") {
 				decodedValue, err := url.QueryUnescape(strValue)
 				if err == nil && decodedValue != strValue {
-					log.Printf("自定义属性URL解码 [%s]: %s -> %s", key, strValue, decodedValue)
 					customProps[key] = decodedValue
 				}
 			}
@@ -286,7 +258,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 					strings.Contains(lowerKey, "href") {
 					decodedValue, err := url.QueryUnescape(strValue)
 					if err == nil && decodedValue != strValue {
-						log.Printf("Metadata URL解码 [%s]: %s -> %s", key, strValue, decodedValue)
 						metadataMap[key] = decodedValue
 					}
 				}
@@ -343,10 +314,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		EventDuration:    req.EventDuration,
 	}
 
-	// 记录事件处理日志
-	log.Printf("事件处理完成: type=%s, path=%s, platform=%s, duration=%d",
-		event.EventType, event.PagePath, event.Platform, event.EventDuration)
-
 	return event
 }
 
@@ -384,10 +351,23 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 过滤掉静态资源请求
+		// 过滤掉静态资源请求和健康检查请求
 		if shouldSkipRequest(c.Request.URL.Path) {
 			c.Next()
 			return
+		}
+
+		// 过滤掉健康检查、认证检查等非业务请求
+		skipPaths := []string{
+			"/api/ping",
+			"/api/auth/check",
+			"/favicon.ico",
+		}
+		for _, skipPath := range skipPaths {
+			if c.Request.URL.Path == skipPath {
+				c.Next()
+				return
+			}
 		}
 
 		// 从请求头中获取设备指纹和会话ID
@@ -398,11 +378,8 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 		pagePath := c.Request.URL.Path
 		decodedPagePath, err := url.QueryUnescape(pagePath)
 		if err != nil {
-			log.Printf("中间件URL解码失败: %v, 使用原始路径: %s", err, pagePath)
+			// URL解码失败，使用原始路径
 		} else {
-			if decodedPagePath != pagePath {
-				log.Printf("中间件URL解码: %s -> %s", pagePath, decodedPagePath)
-			}
 			pagePath = decodedPagePath
 		}
 
@@ -426,13 +403,13 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 		// 如果没有设备指纹，使用一个临时ID
 		if event.UserID == "" {
 			event.UserID = "auto_generated_" + c.ClientIP()
-			log.Printf("自动生成用户ID: %s", event.UserID)
+
 		}
 
 		// 如果没有会话ID，生成一个临时ID
 		if event.SessionID == "" {
 			event.SessionID = "auto_" + time.Now().Format("20060102150405") + "_" + c.ClientIP()
-			log.Printf("自动生成会话ID: %s", event.SessionID)
+
 		}
 
 		log.Printf("自动跟踪请求: method=%s, path=%s, query=%s, user_id=%s, session_id=%s",

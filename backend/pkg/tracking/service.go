@@ -35,13 +35,11 @@ func NewTrackingService(db *sql.DB) *TrackingService {
 
 // TrackUnpartitionedEvent 记录一个不分区跟踪事件
 func (ts *TrackingService) TrackUnpartitionedEvent(event *UnpartitionedTrackEvent) {
-	log.Printf("收到埋点事件: type=%s, session=%s, path=%s, element=%s, metadata=%s",
-		event.EventType, event.SessionID, event.PagePath, event.ElementPath, event.Metadata)
 
 	// 异步处理，带背压机制
 	select {
 	case ts.unpartDataChan <- event:
-		log.Printf("事件已加入队列: type=%s, session=%s", event.EventType, event.SessionID)
+
 	default:
 		// 队列已满时，同步写入数据库而不是丢弃事件
 		log.Printf("警告: 埋点队列已满，切换到同步写入: type=%s, session=%s", event.EventType, event.SessionID)
@@ -90,8 +88,6 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 	if len(events) == 0 {
 		return
 	}
-
-	log.Printf("开始批量写入，事件数量: %d", len(events))
 
 	// 开始事务
 	tx, err := ts.db.Begin()
@@ -156,7 +152,6 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		}
 
 		// 记录设备指纹（user_id）和页面路径，用于诊断中文问题
-		log.Printf("处理事件: user_id=%s, page_path=%s", event.UserID, event.PagePath)
 
 		_, execErr := stmt.Exec(
 			event.SessionID,
@@ -192,7 +187,6 @@ func (ts *TrackingService) flushUnpartBuffer(events []*UnpartitionedTrackEvent) 
 		return
 	}
 
-	log.Printf("批量写入完成，成功: %d, 失败: %d", successCount, failCount)
 }
 
 // insertSingleEvent 插入单条事件，用于批处理失败时的备选方案
@@ -215,7 +209,6 @@ func (ts *TrackingService) insertSingleEvent(event *UnpartitionedTrackEvent) {
 	}
 
 	// 记录中文内容
-	log.Printf("单条插入事件: page_path=%s", event.PagePath)
 
 	// 直接执行插入
 	_, err = ts.db.Exec(`
@@ -248,6 +241,6 @@ func (ts *TrackingService) insertSingleEvent(event *UnpartitionedTrackEvent) {
 		log.Printf("单条插入失败: %v\n事件详情: type=%s, session=%s",
 			err, event.EventType, event.SessionID)
 	} else {
-		log.Printf("单条插入成功: type=%s, session=%s", event.EventType, event.SessionID)
+
 	}
 }
