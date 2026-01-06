@@ -35,14 +35,25 @@ func InitSchema(db *sql.DB) error {
 		device_info JSONB DEFAULT '{}'::jsonb,
 		event_duration INTEGER DEFAULT 0,
 		device_id VARCHAR(100),
-		version VARCHAR(20)
+		version VARCHAR(20),
+		device_type VARCHAR(50)
 	);
 	`
 	if _, err := db.Exec(createTableSQL); err != nil {
 		return err
 	}
 
-	// 3. 创建索引
+	// 3. 数据库迁移：为已存在的表添加缺失的列
+	migrations := []string{
+		"ALTER TABLE track_event ADD COLUMN IF NOT EXISTS device_type VARCHAR(50)",
+	}
+	for _, migrationSQL := range migrations {
+		if _, err := db.Exec(migrationSQL); err != nil {
+			log.Printf("迁移执行失败 (非致命): %v, SQL: %s", err, migrationSQL)
+		}
+	}
+
+	// 4. 创建索引
 	indices := []string{
 		"CREATE INDEX IF NOT EXISTS idx_track_event_created_at ON track_event(created_at)",
 		"CREATE INDEX IF NOT EXISTS idx_track_event_event_type ON track_event(event_type)",

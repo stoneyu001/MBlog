@@ -45,10 +45,6 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
     echo "Asia/Shanghai" > /etc/timezone && \
     rm -rf /var/cache/apk/*
 
-# 创建非 root 用户运行应用（安全最佳实践）
-RUN addgroup -g 1000 appgroup && \
-    adduser -D -u 1000 -G appgroup appuser
-
 # 设置工作目录
 WORKDIR /app
 
@@ -57,11 +53,10 @@ COPY --from=builder /build/blog /app/blog
 COPY --from=builder /build/static /app/static
 
 # 设置文件权限
-RUN chown -R appuser:appgroup /app && \
-    chmod +x /app/blog
+RUN chmod +x /app/blog
 
-# 切换到非 root 用户
-USER appuser
+# 注意：为了能够写入挂载的 frontend 目录，这里不切换到非 root 用户
+# 如果需要更高安全性，可以在宿主机上确保挂载目录权限正确后恢复 appuser
 
 # 暴露端口
 EXPOSE 3000
