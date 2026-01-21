@@ -246,6 +246,16 @@ func BuildSite() error {
 	}
 	log.Printf("npm install 完成")
 
+	// 修复 node_modules/.bin 下可执行文件的权限（解决 Docker 挂载目录权限问题）
+	binDir := filepath.Join(FrontendDir, "node_modules", ".bin")
+	if runtime.GOOS != "windows" {
+		log.Printf("修复 %s 目录权限...", binDir)
+		chmodCmd := exec.Command("chmod", "-R", "+x", binDir)
+		if out, err := chmodCmd.CombinedOutput(); err != nil {
+			log.Printf("chmod 失败 (非致命): %v, 输出: %s", err, string(out))
+		}
+	}
+
 	// 执行 npm run build
 	log.Printf("执行 npm run build...")
 	cmd = exec.Command(npmName, "run", "build")
