@@ -294,6 +294,9 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	customPropsStr := convertMapToString(customProps)
 	deviceInfo := convertMapToString(deviceInfoMap)
 
+	// 从 UserAgent 解析设备类型
+	deviceType := extractDeviceTypeFromUA(c.Request.UserAgent())
+
 	// 创建事件对象
 	event := &UnpartitionedTrackEvent{
 		SessionID:        req.SessionID,
@@ -310,6 +313,7 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		Platform:         req.Platform,
 		DeviceInfo:       deviceInfo,
 		EventDuration:    req.EventDuration,
+		DeviceType:       deviceType,
 	}
 
 	return event
@@ -530,6 +534,31 @@ func extractPlatformFromUA(ua string) (platform, browser string) {
 	}
 
 	return platform, browser
+}
+
+// extractDeviceTypeFromUA 从 User-Agent 中解析设备类型
+func extractDeviceTypeFromUA(ua string) string {
+	ua = strings.ToLower(ua)
+
+	// 检测平板设备（先于手机，因为某些平板UA也包含mobile）
+	if strings.Contains(ua, "ipad") ||
+		(strings.Contains(ua, "android") && !strings.Contains(ua, "mobile")) ||
+		strings.Contains(ua, "tablet") {
+		return "Tablet"
+	}
+
+	// 检测手机设备
+	if strings.Contains(ua, "iphone") ||
+		strings.Contains(ua, "ipod") ||
+		strings.Contains(ua, "android") && strings.Contains(ua, "mobile") ||
+		strings.Contains(ua, "windows phone") ||
+		strings.Contains(ua, "blackberry") ||
+		strings.Contains(ua, "mobile") {
+		return "Mobile"
+	}
+
+	// 默认为桌面设备
+	return "Desktop"
 }
 
 // cleanString 清理字符串，去除首尾空格、换行符等

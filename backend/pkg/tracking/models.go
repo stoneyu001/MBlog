@@ -23,4 +23,5 @@ type UnpartitionedTrackEvent struct {
 	EventDuration    int       `json:"event_duration"`    // 事件持续时间(毫秒)
 	DeviceID         string    `json:"device_id"`         // 设备ID（与数据库表对齐）
 	Version          string    `json:"version"`           // 应用版本（与数据库表对齐）
+	DeviceType       string    `json:"device_type"`       // 设备类型：Desktop, Mobile, Tablet
 }
