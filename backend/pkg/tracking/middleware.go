@@ -247,19 +247,17 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 
 	// 处理metadata中的URL字段
 	metadataMap := req.Metadata
-	if metadataMap != nil {
-		for key, value := range metadataMap {
-			if strValue, ok := value.(string); ok {
-				// 检查是否是URL相关字段
-				lowerKey := strings.ToLower(key)
-				if strings.Contains(lowerKey, "url") ||
-					strings.Contains(lowerKey, "path") ||
-					strings.Contains(lowerKey, "link") ||
-					strings.Contains(lowerKey, "href") {
-					decodedValue, err := url.QueryUnescape(strValue)
-					if err == nil && decodedValue != strValue {
-						metadataMap[key] = decodedValue
-					}
+	for key, value := range metadataMap {
+		if strValue, ok := value.(string); ok {
+			// 检查是否是URL相关字段
+			lowerKey := strings.ToLower(key)
+			if strings.Contains(lowerKey, "url") ||
+				strings.Contains(lowerKey, "path") ||
+				strings.Contains(lowerKey, "link") ||
+				strings.Contains(lowerKey, "href") {
+				decodedValue, err := url.QueryUnescape(strValue)
+				if err == nil && decodedValue != strValue {
+					metadataMap[key] = decodedValue
 				}
 			}
 		}
@@ -319,8 +317,8 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 
 // 将map转换为JSON字符串，确保中文正确处理
 func convertMapToString(data map[string]interface{}) string {
-	// 同时检查nil和空map
-	if data == nil || len(data) == 0 {
+	// len() 对 nil map 返回 0，所以只需检查 len
+	if len(data) == 0 {
 		return `{}`
 	}
 
