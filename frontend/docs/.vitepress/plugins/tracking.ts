@@ -451,9 +451,26 @@ export class Tracker {
       return 'unknown/unknown';
     }
   }
-
   // 判断是否应该排除该路径
   private shouldExcludePath(path: string): boolean {
+    // 内置的硬编码排除规则（系统级路径，永远不应被采集）
+    const builtInExclusions = [
+      '/api/ping',
+      '/api/auth/check',
+      '/favicon.ico',
+      '/admin',
+      '/static/',
+    ];
+
+    // 首先检查内置排除规则（使用前缀匹配）
+    for (const exclusion of builtInExclusions) {
+      if (path.startsWith(exclusion)) {
+        this.log('事件被内置规则排除:', path);
+        return true;
+      }
+    }
+
+    // 然后检查用户配置的排除规则
     if (!this.options.excludePaths || this.options.excludePaths.length === 0) {
       return false;
     }
@@ -466,7 +483,6 @@ export class Tracker {
       return path === pattern;
     });
   }
-
   // 页面访问埋点
   public trackPageView(path: string, referrer?: string, extraMetadata?: Record<string, any>): void {
     if (!isBrowser) return;

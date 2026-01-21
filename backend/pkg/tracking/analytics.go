@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/url"
+	"strings"
 )
 
 // AnalyticsService 处理统计分析
@@ -162,6 +163,8 @@ func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
 		  AND page_path NOT LIKE '/admin%'
 		  AND page_path NOT LIKE '%?%'
 		  AND page_path != ''
+		  AND page_path != '/'
+		  AND event_type = 'PAGEVIEW'
 		GROUP BY page_path
 		ORDER BY pv DESC
 		LIMIT $1
@@ -182,6 +185,8 @@ func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
 		if decoded, err := url.QueryUnescape(p.Path); err == nil {
 			p.Path = decoded
 		}
+		// 去掉 .html 后缀
+		p.Path = strings.TrimSuffix(p.Path, ".html")
 		p.Title = p.Path // 暂时用路径作为标题
 		results = append(results, p)
 	}
