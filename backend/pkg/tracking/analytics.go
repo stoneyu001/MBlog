@@ -94,15 +94,19 @@ func (s *AnalyticsService) GetFullStats() (*StatsResponse, error) {
 func (s *AnalyticsService) getOverviewStats() (OverviewStats, error) {
 	var stats OverviewStats
 
-	// 总计
-	s.db.QueryRow("SELECT COUNT(*), COUNT(DISTINCT session_id) FROM track_event").Scan(&stats.TotalPV, &stats.TotalUV)
+	// 总计 - PV 只统计页面访问事件，UV 统计所有唯一会话
+	s.db.QueryRow(`
+		SELECT COUNT(*), COUNT(DISTINCT session_id) 
+		FROM track_event 
+		WHERE event_type = 'PAGEVIEW'
+	`).Scan(&stats.TotalPV, &stats.TotalUV)
 
 	// 今日 (使用数据库时间，注意时区)
-	// Postgres 的 CURRENT_DATE 默认是基于服务器时区的
 	todayQuery := `
 		SELECT COUNT(*), COUNT(DISTINCT session_id) 
 		FROM track_event 
-		WHERE created_at >= CURRENT_DATE`
+		WHERE created_at >= CURRENT_DATE
+		  AND event_type = 'PAGEVIEW'`
 	s.db.QueryRow(todayQuery).Scan(&stats.TodayPV, &stats.TodayUV)
 
 	// 昨日
@@ -110,7 +114,8 @@ func (s *AnalyticsService) getOverviewStats() (OverviewStats, error) {
 		SELECT COUNT(*), COUNT(DISTINCT session_id) 
 		FROM track_event 
 		WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' 
-		AND created_at < CURRENT_DATE`
+		AND created_at < CURRENT_DATE
+		AND event_type = 'PAGEVIEW'`
 	s.db.QueryRow(yesterdayQuery).Scan(&stats.YesterdayPV, &stats.YesterdayUV)
 
 	// 在线用户 (过去5分钟)
@@ -131,6 +136,7 @@ func (s *AnalyticsService) getTrendStats(days int) ([]DailyStats, error) {
 			COUNT(DISTINCT session_id) as uv
 		FROM track_event
 		WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+		  AND event_type = 'PAGEVIEW'
 		GROUP BY date
 		ORDER BY date ASC
 	`
