@@ -43,6 +43,7 @@ export interface TrackEvent {
   event_duration?: number;
 
   // 扩展信息
+  device_info?: Record<string, any>;
   metadata?: Record<string, any>;
 }
 
@@ -69,7 +70,7 @@ function generateFingerprint(): string {
   if (!isBrowser) return 'server-side-rendering'
 
   try {
-    console.log('[Tracker Debug] 开始生成设备指纹');
+
 
     // 收集更多设备信息提高唯一性
     const components = [
@@ -96,18 +97,18 @@ function generateFingerprint(): string {
       Math.random().toString(36).substring(2) + Date.now().toString(36)
     ];
 
-    console.log('[Tracker Debug] 收集的设备信息:', components);
+
 
     // 生成指纹
     const rawFingerprint = components.join('|');
-    console.log('[Tracker Debug] 原始指纹字符串:', rawFingerprint);
+
 
     const hash = hashCode(rawFingerprint);
-    console.log('[Tracker Debug] 哈希值:', hash);
+
 
     // 确保生成的指纹是正数且为16进制
     const fingerprint = Math.abs(hash).toString(16);
-    console.log('[Tracker Debug] 最终设备指纹:', fingerprint);
+
 
     // 验证指纹有效性
     if (!fingerprint || fingerprint.length < 8) {
@@ -128,7 +129,7 @@ function generateFingerprint(): string {
     ];
 
     const fallbackFingerprint = hashCode(fallbackComponents.join('|')).toString(16);
-    console.log('[Tracker Debug] 使用备用指纹:', fallbackFingerprint);
+
 
     return fallbackFingerprint;
   }
@@ -173,7 +174,7 @@ export class Tracker {
     this.options = {
       batchSize: 10,
       batchInterval: 5000, // 5秒
-      debug: true, // 默认开启调试
+      debug: false, // 生产环境默认关闭调试日志
       sampling: 1,
       enableAutoTrack: {
         pageview: true,
@@ -205,19 +206,19 @@ export class Tracker {
     if (!isBrowser) return 'server-side-rendering';
 
     try {
-      console.log('[Tracker Debug] 开始获取设备指纹');
+
 
       // 尝试从localStorage获取存储的设备指纹
       const storedFingerprint = localStorage.getItem(this.FINGERPRINT_STORAGE_KEY);
-      console.log('[Tracker Debug] 存储的设备指纹:', storedFingerprint);
+
 
       if (storedFingerprint && storedFingerprint.length >= 8) {
-        console.log('[Tracker Debug] 使用已存储的设备指纹');
+
         return storedFingerprint;
       }
 
       // 生成新的设备指纹
-      console.log('[Tracker Debug] 生成新的设备指纹');
+
       const fingerprint = generateFingerprint();
 
       // 验证生成的指纹
@@ -238,7 +239,7 @@ export class Tracker {
       // 将指纹存储到localStorage
       try {
         localStorage.setItem(this.FINGERPRINT_STORAGE_KEY, fingerprint);
-        console.log('[Tracker Debug] 设备指纹已保存到localStorage');
+
       } catch (e) {
         console.error('[Tracker Error] 保存设备指纹失败:', e);
       }
@@ -371,7 +372,7 @@ export class Tracker {
         referrer: event.referrer,
         platform: platform,
         event_duration: event.event_duration || 0,
-
+        device_info: this.getDeviceInfo(),
         // 元数据
         metadata: {
           ...event.metadata,
@@ -450,6 +451,20 @@ export class Tracker {
       this.log('平台检测出错:', error);
       return 'unknown/unknown';
     }
+  }
+  // 设备信息
+  private getDeviceInfo(): Record<string, any> {
+    if (!isBrowser) return {};
+    try {
+      return {
+        screen_width: screen.width || 0,
+        screen_height: screen.height || 0,
+        color_depth: screen.colorDepth || 0,
+        language: navigator.language || 'unknown',
+        hardware_concurrency: navigator.hardwareConcurrency || 0,
+        platform: navigator.platform || 'unknown',
+      };
+    } catch { return {}; }
   }
   // 判断是否应该排除该路径
   private shouldExcludePath(path: string): boolean {
@@ -733,7 +748,7 @@ export class Tracker {
     // 无论debug设置如何，都记录重要操作
     if (isBrowser) {
       if (this.options.debug) {
-        console.log('%c[Tracker]', 'color: #4CAF50; font-weight: bold;', ...args);
+
       } else if (args[0]?.startsWith && args[0].startsWith('错误')) {
         // 即使未开启debug，错误信息也会记录
         console.error('%c[Tracker Error]', 'color: #F44336; font-weight: bold;', ...args);
