@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"log"
+	"time"
 
 	"blog/internal/config"
 	"blog/internal/database"
@@ -29,17 +30,34 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	// 初始化跟踪服务
-	if err := tracking.InitSchema(db); err != nil {
-		log.Printf("初始化埋点数据库失败: %v", err)
-		// 不中断启动，但记录错误
+	// 初始化跟踪服务（带重试机制）
+	maxRetries := 5
+	var initErr error
+	for i := 0; i < maxRetries; i++ {
+		if initErr = tracking.InitSchema(db); initErr != nil {
+			log.Printf("初始化埋点数据库失败 (尝试 %d/%d): %v", i+1, maxRetries, initErr)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		break
+	}
+	if initErr != nil {
+		log.Printf("埋点数据库初始化最终失败: %v", initErr)
 	}
 	trackingService := tracking.NewTrackingService(db)
 	analyticsService := tracking.NewAnalyticsService(db)
 
-	// 初始化评论服务
-	if err := comments.InitSchema(db); err != nil {
-		log.Printf("初始化评论数据库失败: %v", err)
+	// 初始化评论服务（带重试机制）
+	for i := 0; i < maxRetries; i++ {
+		if initErr = comments.InitSchema(db); initErr != nil {
+			log.Printf("初始化评论数据库失败 (尝试 %d/%d): %v", i+1, maxRetries, initErr)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		break
+	}
+	if initErr != nil {
+		log.Printf("评论数据库初始化最终失败: %v", initErr)
 	}
 	commentService := comments.NewCommentService(db)
 
