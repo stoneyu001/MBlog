@@ -178,10 +178,31 @@ export default defineConfig({
     //头上角要主题切换的文字 Appearance
     darkModeSwitchLabel: "切换主题",
     //左上角logo
-    logo: '/logo.png',
+    logo: { src: '/logo.png', width: 24, height: 24 },
     // 添加版权信息和页脚
     footer: {
       copyright: '© 2024-2025 StoneYu Blog.'
+    }
+  },
+  vite: {
+    build: {
+      minify: 'terser',
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('vue')) {
+                return 'vendor-vue';
+              }
+              if (id.includes('vitepress')) {
+                return 'vendor-vitepress';
+              }
+              return 'vendor-others';
+            }
+          }
+        }
+      }
     }
   }
 })
