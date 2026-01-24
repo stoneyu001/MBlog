@@ -1,0 +1,7 @@
+# 忽略开发相关文件
+*.log
+.DS_Store
+tmp/
+
+# 忽略测试文件
+*_test.go

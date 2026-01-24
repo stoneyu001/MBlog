@@ -33,7 +33,7 @@ FROM alpine:latest
 # 设置时区为上海
 ENV TZ=Asia/Shanghai
 
-# 安装必要的运行时依赖
+# 安装必要的运行时依赖（这一层很少变化，会被缓存）
 # - ca-certificates: HTTPS 请求需要
 # - tzdata: 时区数据
 # - nodejs, npm: 用于安装 pnpm
@@ -41,10 +41,12 @@ ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk update && \
     apk add --no-cache ca-certificates tzdata nodejs npm git && \
-    npm install -g pnpm && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
     rm -rf /var/cache/apk/*
+
+# 单独安装 pnpm（便于版本升级时只重建这一层）
+RUN npm install -g pnpm
 
 # 设置工作目录
 WORKDIR /app
