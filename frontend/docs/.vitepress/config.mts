@@ -186,7 +186,6 @@ export default defineConfig({
   },
   vite: {
     build: {
-      minify: 'terser',
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
