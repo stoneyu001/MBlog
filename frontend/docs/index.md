@@ -15,12 +15,13 @@ hero:
       link: /life/🍵生活拾撷
 
 features:
-  - title: 交流学习
-    details: 希望你可以在我的Blog有所收获！也期待你留下你的心得！
-  - title: 现在主攻
-    details: 我现在具体在开发一个基于go的个人博客系统，使用了docker容器化技术，我希望可以尽可能得减少部署的学习成本以供轻松上手使用,现在完成情况如本站点所示。
-  - title: 待定内容 (Placeholder)
-    details: 此处预留给未来的内容板块，保持三列布局的美观性。
+  - title: 💡 沉淀与分享
+    details: 技术不应是孤岛。在这里记录开发路上的踩坑复盘与技术思考。愿这些文章能成为你 Debug 时的线索，或引发新的灵感，期待与你交流。
+  - title: ⚡️ 核心技术栈
+    details: 本博客基于 Go (Gin) + PostgreSQL 构建后端，配合 Docker Compose 与 Nginx 实现容器化部署，是我初次探索全栈开发的完整实践。
+  - title: 🚀后台展示
+    details: 配套开发的后台管理系统，集成了一些数据可视化功能和一套文章管理系统，支持后台一键触发构建，实现内容修改后的即时发布。
+    link: /admin.html
 
 ---
 
