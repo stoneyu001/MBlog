@@ -8,20 +8,20 @@ WORKDIR /build
 # 安装 git（VitePress 需要用于获取文件元数据）
 RUN apk add --no-cache git tzdata
 
-# 设置 npm 镜像源为国内镜像（加速依赖下载）
-RUN npm config set registry https://registry.npmmirror.com
+# 安装 pnpm 并设置镜像源
+RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com
 
-# 复制 package.json 和 package-lock.json（利用层缓存）
-COPY package*.json ./
+# 复制 pnpm 配置和 lock 文件
+COPY package.json pnpm-lock.yaml ./
 
-# 安装依赖（构建需要 devDependencies）
-RUN npm ci
+# 安装依赖
+RUN pnpm install --frozen-lockfile
 
 # 复制源代码
 COPY docs ./docs
 
 # 构建 VitePress 静态文件
-RUN npm run docs:build
+RUN pnpm run docs:build
 
 # ============================================
 # 第二阶段：运行阶段
