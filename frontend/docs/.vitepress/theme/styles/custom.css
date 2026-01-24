@@ -212,7 +212,7 @@ html.dark .VPLocalSearchBox .search-input {
 @media (max-width: 768px) {
   :root {
     /* 核心：切换为竖版手机图 */
-    --bg-img: url('/bg-mobile.jpg');
+    --bg-img: url('/bg-mobile.webp');
 
     /* 建议：手机端为了字看得清，可以加一层淡淡的遮罩 */
     /* 如果你的手机图本身已经处理得很暗了，这里可以填 none */
