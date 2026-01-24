@@ -1,48 +1,209 @@
-/* 自定义变量 */
+/* --- 1. 核心变量定义 (只需改这里即可控制两套主题) --- */
 :root {
-  --vp-c-brand: #646cff;
-  --vp-c-brand-light: #747bff;
-  --vp-c-brand-dark: #535bf2;
+  /* 背景图配置 */
+  --bg-img: url('/bg.webp');
+  /* 确保文件名正确 */
+  --bg-overlay: none;
+  /* 白天：无遮罩 */
+
+  /* 玻璃态变量 (白天) */
+  --glass-bg: rgba(255, 255, 255, 0.15);
+  --glass-bg-hover: rgba(255, 255, 255, 0.25);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  --text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+
+  /* 搜索框变量 */
+  --search-modal-bg: rgba(255, 255, 255, 0.95);
+  --search-active-bg: rgba(59, 130, 246, 0.15);
+  --search-active-text: #3b82f6;
+
+  /* VitePress 默认变量覆盖 */
+  --vp-c-bg: transparent;
+  --vp-c-text-1: #ffffff;
+  --vp-c-text-2: #f1f5f9;
+  --vp-c-brand: #7dd3fc;
+  --vp-c-divider: rgba(255, 255, 255, 0.2);
+  --vp-c-gutter: transparent;
+  --vp-home-hero-name-color: #fff;
 }
 
-/* 中文字体优化 */
-:root {
-  --vp-font-family-base: "Inter var experimental", "Inter var", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  --vp-font-family-mono: "Fira Code VF", "Fira Code", ui-monospace, SFMono-Regular,
-    "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+/* 深色模式变量 (自动切换) */
+html.dark {
+  /* 黑夜：加深色渐变遮罩 */
+  --bg-overlay: linear-gradient(rgba(2, 6, 23, 0.6), rgba(15, 23, 42, 0.8));
+
+  /* 玻璃态 (黑夜) */
+  --glass-bg: rgba(0, 0, 0, 0.4);
+  --glass-bg-hover: rgba(0, 0, 0, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+
+  /* 搜索框 (黑夜) */
+  --search-modal-bg: rgba(15, 23, 42, 0.95);
+  --search-active-bg: rgba(59, 130, 246, 0.3);
+  --search-active-text: #60a5fa;
 }
 
-/* 移动端适配 */
-@media (max-width: 960px) {
-  .VPNav {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
+/* --- 2. 全局背景与透明化 --- */
+html,
+body {
+  /* 妙用：利用背景层叠，一次搞定白天/黑夜 */
+  background: var(--bg-overlay), var(--bg-img) center bottom / cover no-repeat fixed;
 }
 
-/* 文章样式优化 */
-.vp-doc h1,
-.vp-doc h2,
-.vp-doc h3,
-.vp-doc h4,
-.vp-doc h5,
-.vp-doc h6 {
-  margin-top: 2rem;
-  margin-bottom: 1rem;
+/* 强力去背景：合并所有需要透明的区域 */
+#app,
+.Layout,
+.VPContent,
+.VPHero,
+.VPFooter,
+.VPNav,
+.VPNavBar,
+.VPNavScreen,
+.VPNavBarSearch .DocSearch-Button {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
-.vp-doc p {
-  line-height: 1.7;
+/* --- 3. 通用增强 (文字阴影 & 颜色) --- */
+/* 保证在任何云彩背景上文字都清晰 */
+h1,
+.tagline,
+.VPFeature .title,
+.VPFeature .details,
+.VPNavBar .text,
+.VPNavBar .link,
+.VPButton.alt,
+.VPNavBarSearch .DocSearch-Button {
+  text-shadow: var(--text-shadow);
+  color: #fff !important;
 }
 
-/* 标签样式优化 */
-.article-tags {
-  margin: -0.5rem 0 2rem;
+/* --- 4. 组件样式 (直接引用变量) --- */
+
+/* 通用玻璃态组件：卡片、次要按钮、搜索按钮 */
+.VPFeature,
+.VPButton.alt,
+.VPNavBarSearch .DocSearch-Button {
+  background-color: var(--glass-bg) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s ease;
+  border-radius: 12px;
+  /* 稍微统一一下圆角 */
 }
 
-/* 确保标签在标题下方 */
-.vp-doc h1 + .article-tags {
-  margin-top: 0.5rem;
-} 
+/* 特殊修正：卡片圆角大一点 */
+.VPFeature {
+  border-radius: 16px;
+}
+
+/* 悬停效果 (自动适配黑白) */
+.VPFeature:hover,
+.VPButton.alt:hover {
+  transform: translateY(-5px);
+  background-color: var(--glass-bg-hover) !important;
+  border-color: #fff !important;
+}
+
+/* 主按钮 (渐变蓝) */
+.VPButton.brand {
+  background-image: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  color: #fff !important;
+  text-shadow: none;
+  /* 主按钮自带背景，不需要文字阴影 */
+  transition: transform 0.3s;
+}
+
+.VPButton.brand:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.8);
+}
+
+/* 导航栏滚动时加深 */
+.VPNav.stick {
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* --- 5. 搜索体验优化 --- */
+.VPLocalSearchBox {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* 弹窗主体 */
+.VPLocalSearchBox .shell {
+  background-color: var(--search-modal-bg) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.VPLocalSearchBox .search-input {
+  background: transparent !important;
+}
+
+.VPLocalSearchBox .result-list {
+  opacity: 1 !important;
+}
+
+/* 搜索结果选中态 */
+.VPLocalSearchBox .result-list li.selected {
+  background-color: var(--search-active-bg) !important;
+}
+
+.VPLocalSearchBox .result-list li.selected .titles {
+  color: var(--search-active-text) !important;
+}
+
+/* 搜索占位符颜色修正 */
+.VPNavBarSearch .DocSearch-Button-Placeholder {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* --- 🚑 搜索框文字颜色紧急修复 --- */
+
+/* 1. 强制重置搜索框内的文字颜色变量 */
+/* 这里的逻辑是：虽然全站是白字，但在搜索弹窗里，我们要黑字 */
+.VPLocalSearchBox,
+.DocSearch-Modal {
+  --vp-c-text-1: #334155 !important;
+  /* 深灰色主文字 */
+  --vp-c-text-2: #64748b !important;
+  /* 浅灰色辅助文字 */
+  --vp-c-text-3: #94a3b8 !important;
+  /* 图标颜色 */
+  color: var(--vp-c-text-1) !important;
+}
+
+/* 2. 确保输入框里的字也是深色的 */
+.VPLocalSearchBox .search-input {
+  color: #334155 !important;
+}
+
+/* 3. 深色模式下：让文字变回白色 */
+/* 因为深色模式搜索框背景是黑的，所以字要是白的 */
+html.dark .VPLocalSearchBox,
+html.dark .DocSearch-Modal {
+  --vp-c-text-1: #ffffff !important;
+  --vp-c-text-2: #cbd5e1 !important;
+  --vp-c-text-3: #94a3b8 !important;
+  color: var(--vp-c-text-1) !important;
+}
+
+html.dark .VPLocalSearchBox .search-input {
+  color: #ffffff !important;
+}
+
+/* 4. 修复搜索结果高亮时的文字颜色 */
+.VPLocalSearchBox .result-list li.selected .titles,
+.VPLocalSearchBox .result-list li.selected .text {
+  color: #3b82f6 !important;
+  /* 选中时变蓝 */
+}

@@ -43,6 +43,7 @@ COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
 # 复制并设置 entrypoint 脚本
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN apk add --no-cache dos2unix && dos2unix /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # 暴露端口
