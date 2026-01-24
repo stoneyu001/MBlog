@@ -89,38 +89,59 @@ li,
   color: #fff !important;
 }
 
-
 /* ==========================================================================
-   3. 侧边栏与导航栏 (Sidebar & Navbar)
+   3. 侧边栏与导航栏 (Sidebar & Navbar) 
    ========================================================================== */
 
-/* --- 侧边栏整体：极致透明 --- */
-.VPSidebar {
-  /* 只有右侧留一条缝，其余全透 */
-  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
-  backdrop-filter: none !important;
-  /* 去除磨砂 */
-  background-color: rgba(0, 0, 0, 0.05) !important;
-  /* 极淡的黑底聚拢视线 */
-}
-
-/* --- 修复侧边栏顶部白块的关键代码 --- */
-.VPNavBar {
-  /* 顶部导航栏本身透明 */
+/* --- 1. 顶层容器透明 --- */
+.VPNav,
+.VPNavBar,
+.VPNavScreen {
   background-color: transparent !important;
   backdrop-filter: none !important;
+  box-shadow: none !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-/* 侧边栏内的 Logo 分组区域 */
+/* --- 2. 核心：Logo 区域精准打击 (包含你发现的 .title) --- */
+.VPNavBarTitle,
+.VPNavBarTitle .title,
+/* 🎯 这里就是你查到的那个 div */
+.VPNavBarTitle .logo,
+/* Logo 图片容器 */
+.VPImage {
+  /* 图片本身 */
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 确保 Logo 旁边的文字颜色正确 */
+.VPNavBarTitle .title {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  /* 加重阴影防止背景太亮看不清 */
+}
+
+/* --- 3. 侧边栏整体 --- */
+.VPSidebar {
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: none !important;
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  /* 极淡黑底 */
+}
+
+/* --- 4. 侧边栏内的分组标题 --- */
 .VPSidebar>.group {
+  background-color: transparent !important;
   margin-top: 0 !important;
-  /* 消除可能存在的间距 */
   padding-top: 20px !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-/* 侧边栏链接文字 */
+/* --- 5. 侧边栏链接样式 --- */
 .VPSidebarItem .text {
   color: #ffffff !important;
   opacity: 0.85;
@@ -133,19 +154,16 @@ li,
   border-radius: 4px;
 }
 
-/* 侧边栏选中项 */
 .VPSidebarItem.is-active .text {
   color: var(--vp-c-brand) !important;
   font-weight: 600;
   text-shadow: 0 0 10px rgba(125, 211, 252, 0.5);
-  /* 发光效果 */
 }
 
 .VPSidebarItem.is-active {
   background-color: rgba(255, 255, 255, 0.1) !important;
   border-radius: 6px;
 }
-
 
 /* ==========================================================================
    4. 内容区域与组件 (Content & Components)
@@ -205,20 +223,59 @@ li,
   text-shadow: none;
 }
 
-
 /* ==========================================================================
-   5. 搜索框逻辑 (Search) - 独立处理黑白字
+   5. 搜索功能优化 (Search) - 修正版
    ========================================================================== */
+
+/* --- 1. 搜索按钮 (导航栏上的那个) --- */
+/* 这里找回了丢失的透明度 */
+.VPNavBarSearchButton,
+.DocSearch-Button {
+  background-color: var(--glass-bg) !important;
+  /* 使用玻璃变量 */
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 8px;
+  /* 圆角统一 */
+  color: #fff !important;
+  /* 文字颜色 */
+  padding: 0 12px !important;
+  /* 稍微调整内边距 */
+}
+
+.VPNavBarSearchButton:hover,
+.DocSearch-Button:hover {
+  background-color: var(--glass-bg-hover) !important;
+  border-color: #fff !important;
+}
+
+/* 占位符文字颜色 (Search / Ctrl K) */
+.DocSearch-Button-Placeholder,
+.VPNavBarSearchButton-placeholder {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.DocSearch-Button-Key,
+.VPNavBarSearchButton-key {
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  /* 按键边框也淡化 */
+}
+
+/* --- 2. 搜索弹窗 (点开后的界面) --- */
 .VPLocalSearchBox {
   background-color: rgba(0, 0, 0, 0.4) !important;
+  /* 弹窗背景遮罩 */
+  backdrop-filter: blur(5px) !important;
 }
 
 .VPLocalSearchBox .shell {
   background-color: var(--search-modal-bg) !important;
+  /* 搜索框主体背景 */
   border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* 搜索弹窗内强制使用深色字，否则白底白字看不见 */
+/* ⚠️ 搜索弹窗内的文字颜色逻辑 (保持之前修正的黑白字) */
 .VPLocalSearchBox,
 .DocSearch-Modal {
   --vp-c-text-1: #334155 !important;
@@ -227,9 +284,10 @@ li,
 
 .VPLocalSearchBox .search-input {
   color: #334155 !important;
+  background: transparent !important;
 }
 
-/* 深色模式下反转回白字 */
+/* 深色模式适配 */
 html.dark .VPLocalSearchBox,
 html.dark .DocSearch-Modal {
   --vp-c-text-1: #fff !important;
@@ -238,7 +296,6 @@ html.dark .DocSearch-Modal {
 html.dark .VPLocalSearchBox .search-input {
   color: #fff !important;
 }
-
 
 /* ==========================================================================
    6. 移动端适配 (Mobile)
