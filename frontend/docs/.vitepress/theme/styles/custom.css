@@ -103,14 +103,16 @@ li,
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-/* --- 2. 核心：Logo 区域精准打击 (包含你发现的 .title) --- */
+/* --- 2. Logo 区域精准修复 --- */
 .VPNavBarTitle,
 .VPNavBarTitle .title,
-/* 🎯 这里就是你查到的那个 div */
 .VPNavBarTitle .logo,
-/* Logo 图片容器 */
-.VPImage {
-  /* 图片本身 */
+.VPSidebar .curtain,
+/* 关键：把那个幕布变透 */
+.VPNavBarTitle .VPImage
+
+/* 关键修正：只针对 Logo 图片本身，不影响文章里的图 */
+  {
   background-color: transparent !important;
   background: transparent !important;
   border: none !important;
