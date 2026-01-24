@@ -230,40 +230,114 @@ html.dark .VPLocalSearchBox .search-input {
   }
 }
 
-/* --- 📄 文章详情页专项优化 --- */
+/* --- 侧边栏：极致透明 (无磨砂版) --- */
 
-/* 1. 左侧导航栏 (Sidebar) 玻璃化 */
 .VPSidebar {
-  background-color: var(--glass-bg) !important;
-  /* 复用之前的玻璃变量 */
-  backdrop-filter: blur(10px);
-  border-right: 1px solid var(--glass-border) !important;
+  /* 1. 背景：完全透明 (或者给极淡的黑底增强对比，任选其一) */
+  /* background-color: transparent !important; */
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  /* 推荐：5% 的黑底，几乎看不见，但能稍微聚拢视线 */
+
+  /* 2. 核心：去除磨砂模糊 */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+
+  /* 3. 边框：仅保留右侧一条淡淡的白线 */
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: none !important;
 }
 
-/* 2. 侧边栏文字颜色修正 (黑字变白字) */
+/* 4. 去除侧边栏内部的分组背景 (Logo区域等) */
+.VPSidebar>.group {
+  background-color: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 5. 侧边栏文字增强 (因为背景透明了，文字必须加重阴影才能看清) */
 .VPSidebarItem .text {
-  color: rgba(255, 255, 255, 0.9) !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  /* 加阴影防看不清 */
+  color: #ffffff !important;
+  /* 强力阴影：保证在白云或深蓝背景上都能看清 */
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  opacity: 0.9;
 }
 
-/* 3. 侧边栏选中项/悬停项高亮 */
-.VPSidebarItem.is-active .text,
-.VPSidebarItem .text:hover {
-  color: var(--vp-c-brand) !important;
-  /* 变成天蓝色 */
-  text-shadow: none;
+/* 6. 选中项高亮 (给一个纯净的方块背景) */
+.VPSidebarItem.is-active .text {
+  color: #7dd3fc !important;
+  /* 天蓝色高亮 */
+  opacity: 1;
 }
 
-/* 选中项的小竖条背景 */
+/* 选中项的背景块 */
 .VPSidebarItem.is-active {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  /* 半透明白块 */
+  border-radius: 6px;
+  /* 小圆角 */
 }
 
-/* 让代码块也稍微透一点，融入背景 */
+/* 7. 鼠标悬停效果 */
+.VPSidebarItem .text:hover {
+  opacity: 1;
+  color: #fff !important;
+  background-color: rgba(255, 255, 255, 0.05);
+  /* 极淡的悬停背景 */
+}
+
+/* --- 代码块优化：白水晶风格 --- */
 .vp-doc div[class*='language-'] {
-  background-color: rgba(0, 0, 0, 0.4) !important;
-  /* 深色半透明 */
-  backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* 1. 背景：半透明乳白色 (调整 0.5 可以改变不透明度) */
+  background-color: rgba(255, 255, 255, 0.5) !important;
+
+  /* 2. 磨砂质感 */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  /* 3. 边框：亮白色描边，增加精致感 */
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  /* 轻微阴影 */
+  border-radius: 12px;
+}
+
+/* 4. (可选) 强制代码文字颜色变深，防止白底白字 */
+/* 如果你发现代码文字看不清，把下面这段的注释打开 */
+/* .vp-doc div[class*='language-'] code {
+  color: #334155 !important; 
+  text-shadow: none !important;
+} 
+*/
+
+/* 5. 复制按钮优化 */
+.vp-doc div[class*='language-'] .copy {
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.vp-doc div[class*='language-'] .copy:hover {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* --- 侧边栏顶部 Logo 区域修复 --- */
+
+/* 1. 核心：去掉 Logo 区域的白底 */
+.VPSidebar>.group {
+  background-color: transparent !important;
+  /* 关键！变透明 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  /* 把那条分割线变得极淡 */
+  box-shadow: none !important;
+  /* 去掉阴影 */
+}
+
+/* 2. 适配文字颜色 (白底变透后，字必须是白的) */
+.VPSidebar .VPNavBarTitle .text {
+  color: #ffffff !important;
+  /* 加重文字阴影，保证在白云背景上也能看清 */
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  font-weight: 600;
+}
+
+/* 3. (防万一) 针对移动端侧边栏顶部的特殊处理 */
+.VPNavScreen .group {
+  background-color: transparent !important;
 }
