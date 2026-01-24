@@ -29,7 +29,7 @@ export default defineConfig({
   lastUpdated: true,
 
   head: [
-    ['link', { rel: 'icon', href: '/logo.png' }]
+    ['link', { rel: 'icon', href: '/logo.webp' }]
   ],
 
   // 添加自动标签提取和其他元数据处理
