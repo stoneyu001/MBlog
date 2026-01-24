@@ -102,7 +102,7 @@ export default defineConfig({
       label: '页面导航'
     },
     nav: [
-      { text: '🔧后台管理', link: '/admin' },
+      { text: '🔧后台管理', link: 'https://www.stoneyu.fun/admin' },
       { text: '主页', link: '/' },
       { text: '🍵生活拾撷', link: '/life/🍵生活拾撷' },
       { text: '💻技术栈志', link: '/tech/💻技术栈志' }
