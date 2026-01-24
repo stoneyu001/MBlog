@@ -231,9 +231,10 @@ func BuildSite() error {
 		log.Printf("pnpm 版本: %s", strings.TrimSpace(string(out)))
 	}
 
-	// 检查 node_modules 是否存在，存在则跳过 pnpm install（大幅提速）
+	// 检查 node_modules 是否完整（大幅提速）
 	nodeModulesPath := filepath.Join(FrontendDir, "node_modules")
 	pnpmLockPath := filepath.Join(FrontendDir, "pnpm-lock.yaml")
+	vitepressPath := filepath.Join(nodeModulesPath, "vitepress") // 检查关键依赖
 
 	needInstall := false
 	if _, err := os.Stat(nodeModulesPath); os.IsNotExist(err) {
@@ -242,8 +243,11 @@ func BuildSite() error {
 	} else if _, err := os.Stat(pnpmLockPath); os.IsNotExist(err) {
 		needInstall = true
 		log.Printf("pnpm-lock.yaml 不存在，需要执行 pnpm install")
+	} else if _, err := os.Stat(vitepressPath); os.IsNotExist(err) {
+		needInstall = true
+		log.Printf("vitepress 依赖不存在，需要执行 pnpm install")
 	} else {
-		log.Printf("node_modules 已存在，跳过 pnpm install")
+		log.Printf("node_modules 已完整，跳过 pnpm install")
 	}
 
 	if needInstall {
