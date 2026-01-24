@@ -207,3 +207,25 @@ html.dark .VPLocalSearchBox .search-input {
   color: #3b82f6 !important;
   /* 选中时变蓝 */
 }
+
+/* 2. 手机端专属覆盖 (当屏幕宽度小于 768px 时) */
+@media (max-width: 768px) {
+  :root {
+    /* 核心：切换为竖版手机图 */
+    --bg-img: url('/bg-mobile.jpg');
+
+    /* 建议：手机端为了字看得清，可以加一层淡淡的遮罩 */
+    /* 如果你的手机图本身已经处理得很暗了，这里可以填 none */
+    --bg-overlay: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
+  }
+
+  /* 修复背景显示逻辑，防止被导航栏遮挡 */
+  html,
+  body {
+    /* 手机端改用 scroll，避免部分浏览器地址栏伸缩导致背景跳动 */
+    background-attachment: scroll !important;
+    background-position: center bottom !important;
+    /* 保证女孩始终在底部 */
+    background-size: cover !important;
+  }
+}
