@@ -20,8 +20,8 @@ features:
   - title: ⚡️ 核心技术栈
     details: 本博客基于 Go (Gin) + PostgreSQL 构建后端，配合 Docker Compose 与 Nginx 实现容器化部署，是我初次探索全栈开发的完整实践。
   - title: 🚀后台展示
-    details: 配套开发的后台管理系统，集成了一些数据可视化功能和一套文章管理系统，支持后台一键触发构建，实现内容修改后的即时发布。
-    link: /admin.html
+    details: 配套开发的后台管理系统，集成数据可视化功能和文章管理系统，支持后台一键触发构建，实现内容修改后的即时发布。点击此卡片跳转
+    link: /admin
 
 ---
 
