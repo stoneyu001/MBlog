@@ -169,7 +169,6 @@ const articleId = computed(() => {
     .replace(/^_/, '')                        // 移除开头的下划线
     .replace(/_$/, '');                       // 移除结尾的下划线
   
-  console.log('原始路径:', path, '简化的文章ID:', simpleId);
   return simpleId || 'index';
 });
 
@@ -225,38 +224,25 @@ async function loadComments() {
   loadError.value = '';
   
   try {
-    console.log('获取评论，文章ID:', articleId.value);
     const encodedId = encodeURIComponent(articleId.value);
-    console.log('编码后的文章ID:', encodedId, '请求URL:', `${apiBaseUrl}/api/comments/${encodedId}`);
-    
     const response = await fetch(`${apiBaseUrl}/api/comments/${encodedId}`);
-    
-    console.log('评论API响应状态:', response.status, response.statusText);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('评论API错误响应:', errorText);
       throw new Error('获取评论失败');
     }
     
     const data = await response.json();
-    console.log('获取到评论数据:', data);
-    console.log('获取到评论数据类型:', typeof data, '是否数组:', Array.isArray(data));
-    
     // 处理null或undefined响应，转换为空数组
     if (data === null || data === undefined) {
-      console.log('响应数据为null或undefined，使用空数组');
       comments.value = [];
     } else {
       comments.value = data;
     }
-    
-    console.log('获取到评论数量:', comments.value.length);
   } catch (error) {
     console.error('加载评论出错详细信息:', error);
     console.error('错误堆栈:', error.stack);
     // 网络错误时，显示空评论列表而不是错误信息
     if (error.message === 'Failed to fetch') {
-      console.log('网络错误，显示空评论列表');
       comments.value = [];
     } else {
       loadError.value = '加载评论失败，请稍后重试';
@@ -278,16 +264,12 @@ async function submitComment() {
   submitSuccess.value = false;
   
   try {
-    console.log('提交评论，文章ID:', articleId.value);
-    
     const commentData = {
       article_id: articleId.value,
       nickname: formData.value.nickname,
       email: formData.value.email,
       content: formData.value.content
     };
-    
-    console.log('评论提交数据:', commentData);
     
     const response = await fetch(`${apiBaseUrl}/api/comments`, {
       method: 'POST',
@@ -297,16 +279,12 @@ async function submitComment() {
       body: JSON.stringify(commentData)
     });
     
-    console.log('评论提交响应状态:', response.status, response.statusText);
-    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('评论提交错误响应:', errorText);
       throw new Error('提交评论失败');
     }
     
     const responseData = await response.json();
-    console.log('评论提交响应数据:', responseData);
     
     // 保存用户信息
     saveUserInfo();
@@ -358,7 +336,6 @@ async function submitReply() {
   submitError.value = '';
   
   try {
-    console.log('提交回复，文章ID:', articleId.value, '回复ID:', replyingTo.value);
     const response = await fetch(`${apiBaseUrl}/api/comments`, {
       method: 'POST',
       headers: {
@@ -417,15 +394,12 @@ function formatDate(dateStr) {
 
 // 监听路由变化
 watch(() => route.path, () => {
-  console.log('路由发生变化，重新加载评论');
   loadComments();
 }, { immediate: true });
 
 // 组件挂载时加载评论和用户信息
 onMounted(() => {
   loadUserInfo();
-  console.log('组件已挂载，当前路径:', route.path);
-  console.log('处理后的文章ID:', articleId.value);
 });
 </script>
 
