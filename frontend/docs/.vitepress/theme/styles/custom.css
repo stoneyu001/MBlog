@@ -1,58 +1,62 @@
-/* --- 1. 核心变量定义 (只需改这里即可控制两套主题) --- */
+/* ==========================================================================
+   1. 核心变量定义 (Theme Variables)
+   ========================================================================== */
 :root {
-  /* 背景图配置 */
+  /* --- 背景设置 --- */
   --bg-img: url('/bg.webp');
-  /* 确保文件名正确 */
+  /* 电脑端背景 */
   --bg-overlay: none;
-  /* 白天：无遮罩 */
+  /* 白天无遮罩 */
 
-  /* 玻璃态变量 (白天) */
+  /* --- 玻璃态变量 (Glassmorphism) --- */
   --glass-bg: rgba(255, 255, 255, 0.15);
+  /* 通用玻璃背景 */
   --glass-bg-hover: rgba(255, 255, 255, 0.25);
   --glass-border: rgba(255, 255, 255, 0.3);
   --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  --text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  --text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  /* 全局文字阴影增强可读性 */
 
-  /* 搜索框变量 */
+  /* --- 搜索框配色 --- */
   --search-modal-bg: rgba(255, 255, 255, 0.95);
   --search-active-bg: rgba(59, 130, 246, 0.15);
   --search-active-text: #3b82f6;
 
-  /* VitePress 默认变量覆盖 */
+  /* --- VitePress 默认变量强制覆盖 --- */
   --vp-c-bg: transparent;
+  /* 去除默认白底 */
   --vp-c-text-1: #ffffff;
+  /* 主文字全白 */
   --vp-c-text-2: #f1f5f9;
+  /* 次要文字浅灰 */
   --vp-c-brand: #7dd3fc;
+  /* 品牌色(链接/按钮) - 天蓝色 */
   --vp-c-divider: rgba(255, 255, 255, 0.2);
   --vp-c-gutter: transparent;
   --vp-home-hero-name-color: #fff;
 }
 
-/* 深色模式变量 (自动切换) */
+/* 深色模式适配 (Dark Mode) */
 html.dark {
-  /* 黑夜：加深色渐变遮罩 */
   --bg-overlay: linear-gradient(rgba(2, 6, 23, 0.6), rgba(15, 23, 42, 0.8));
-
-  /* 玻璃态 (黑夜) */
   --glass-bg: rgba(0, 0, 0, 0.4);
   --glass-bg-hover: rgba(0, 0, 0, 0.6);
   --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
-
-  /* 搜索框 (黑夜) */
   --search-modal-bg: rgba(15, 23, 42, 0.95);
   --search-active-bg: rgba(59, 130, 246, 0.3);
   --search-active-text: #60a5fa;
 }
 
-/* --- 2. 全局背景与透明化 --- */
+
+/* ==========================================================================
+   2. 全局背景重置 (Global Reset)
+   ========================================================================== */
 html,
 body {
-  /* 妙用：利用背景层叠，一次搞定白天/黑夜 */
   background: var(--bg-overlay), var(--bg-img) center bottom / cover no-repeat fixed;
 }
 
-/* 强力去背景：合并所有需要透明的区域 */
+/* 🔥 核弹级去背景：强制去除所有 VitePress 默认的大白块 */
 #app,
 .Layout,
 .VPContent,
@@ -61,283 +65,350 @@ body {
 .VPNav,
 .VPNavBar,
 .VPNavScreen,
-.VPNavBarSearch .DocSearch-Button {
+.VPNavBarTitle,
+.VPSidebar,
+.VPSidebar>.group {
   background-color: transparent !important;
+  background: transparent !important;
   box-shadow: none !important;
   border: none !important;
 }
 
-/* --- 3. 通用增强 (文字阴影 & 颜色) --- */
-/* 保证在任何云彩背景上文字都清晰 */
+/* 全局文字增强 */
 h1,
+h2,
+h3,
+p,
+li,
 .tagline,
 .VPFeature .title,
 .VPFeature .details,
 .VPNavBar .text,
-.VPNavBar .link,
-.VPButton.alt,
-.VPNavBarSearch .DocSearch-Button {
+.VPNavBar .link {
   text-shadow: var(--text-shadow);
   color: #fff !important;
 }
 
-/* --- 4. 组件样式 (直接引用变量) --- */
 
-/* 通用玻璃态组件：卡片、次要按钮、搜索按钮 */
-.VPFeature,
-.VPButton.alt,
-.VPNavBarSearch .DocSearch-Button {
-  background-color: var(--glass-bg) !important;
+/* ==========================================================================
+   3. 侧边栏与导航栏 (Sidebar & Navbar)
+   ========================================================================== */
+
+/* --- 侧边栏整体：极致透明 --- */
+.VPSidebar {
+  /* 只有右侧留一条缝，其余全透 */
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: none !important;
+  /* 去除磨砂 */
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  /* 极淡的黑底聚拢视线 */
+}
+
+/* --- 修复侧边栏顶部白块的关键代码 --- */
+.VPNavBar {
+  /* 顶部导航栏本身透明 */
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 侧边栏内的 Logo 分组区域 */
+.VPSidebar>.group {
+  margin-top: 0 !important;
+  /* 消除可能存在的间距 */
+  padding-top: 20px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 侧边栏链接文字 */
+.VPSidebarItem .text {
+  color: #ffffff !important;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.VPSidebarItem .text:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* 侧边栏选中项 */
+.VPSidebarItem.is-active .text {
+  color: var(--vp-c-brand) !important;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(125, 211, 252, 0.5);
+  /* 发光效果 */
+}
+
+.VPSidebarItem.is-active {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px;
+}
+
+
+/* ==========================================================================
+   4. 内容区域与组件 (Content & Components)
+   ========================================================================== */
+
+/* --- 代码块：白水晶风格 (White Frost) --- */
+.vp-doc div[class*='language-'] {
+  background-color: rgba(255, 255, 255, 0.65) !important;
+  /* 半透明白 */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border) !important;
-  box-shadow: var(--glass-shadow);
-  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 12px;
-  /* 稍微统一一下圆角 */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
 }
 
-/* 特殊修正：卡片圆角大一点 */
-.VPFeature {
+/* 复制按钮 */
+.vp-doc div[class*='language-'] .copy {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* --- 卡片组件 (Features) --- */
+.VPFeature,
+.VPButton.alt {
+  background-color: var(--glass-bg) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border) !important;
   border-radius: 16px;
+  box-shadow: var(--glass-shadow);
 }
 
-/* 悬停效果 (自动适配黑白) */
-.VPFeature:hover,
-.VPButton.alt:hover {
+.VPFeature:hover {
   transform: translateY(-5px);
   background-color: var(--glass-bg-hover) !important;
-  border-color: #fff !important;
 }
 
-/* 主按钮 (渐变蓝) */
+/* --- 评论区透明化 (适配 Giscus/Waline) --- */
+.vp-doc-after,
+#giscus,
+.giscus,
+.comments-container {
+  margin-top: 32px;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  /* 深色半透明底衬托评论 */
+  backdrop-filter: blur(5px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* --- 按钮样式 --- */
 .VPButton.brand {
   background-image: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
   color: #fff !important;
   text-shadow: none;
-  /* 主按钮自带背景，不需要文字阴影 */
-  transition: transform 0.3s;
 }
 
-.VPButton.brand:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(59, 130, 246, 0.8);
-}
 
-/* 导航栏滚动时加深 */
-.VPNav.stick {
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  backdrop-filter: blur(10px) !important;
-}
-
-/* --- 5. 搜索体验优化 --- */
+/* ==========================================================================
+   5. 搜索框逻辑 (Search) - 独立处理黑白字
+   ========================================================================== */
 .VPLocalSearchBox {
   background-color: rgba(0, 0, 0, 0.4) !important;
-  backdrop-filter: blur(10px) !important;
 }
 
-/* 弹窗主体 */
 .VPLocalSearchBox .shell {
   background-color: var(--search-modal-bg) !important;
-  border: 1px solid var(--glass-border);
   border-radius: 12px;
 }
 
-.VPLocalSearchBox .search-input {
-  background: transparent !important;
-}
-
-.VPLocalSearchBox .result-list {
-  opacity: 1 !important;
-}
-
-/* 搜索结果选中态 */
-.VPLocalSearchBox .result-list li.selected {
-  background-color: var(--search-active-bg) !important;
-}
-
-.VPLocalSearchBox .result-list li.selected .titles {
-  color: var(--search-active-text) !important;
-}
-
-/* 搜索占位符颜色修正 */
-.VPNavBarSearch .DocSearch-Button-Placeholder {
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* --- 🚑 搜索框文字颜色紧急修复 --- */
-
-/* 1. 强制重置搜索框内的文字颜色变量 */
-/* 这里的逻辑是：虽然全站是白字，但在搜索弹窗里，我们要黑字 */
+/* 搜索弹窗内强制使用深色字，否则白底白字看不见 */
 .VPLocalSearchBox,
 .DocSearch-Modal {
   --vp-c-text-1: #334155 !important;
-  /* 深灰色主文字 */
   --vp-c-text-2: #64748b !important;
-  /* 浅灰色辅助文字 */
-  --vp-c-text-3: #94a3b8 !important;
-  /* 图标颜色 */
-  color: var(--vp-c-text-1) !important;
 }
 
-/* 2. 确保输入框里的字也是深色的 */
 .VPLocalSearchBox .search-input {
   color: #334155 !important;
 }
 
-/* 3. 深色模式下：让文字变回白色 */
-/* 因为深色模式搜索框背景是黑的，所以字要是白的 */
+/* 深色模式下反转回白字 */
 html.dark .VPLocalSearchBox,
 html.dark .DocSearch-Modal {
-  --vp-c-text-1: #ffffff !important;
-  --vp-c-text-2: #cbd5e1 !important;
-  --vp-c-text-3: #94a3b8 !important;
-  color: var(--vp-c-text-1) !important;
+  --vp-c-text-1: #fff !important;
 }
 
 html.dark .VPLocalSearchBox .search-input {
-  color: #ffffff !important;
+  color: #fff !important;
 }
 
-/* 4. 修复搜索结果高亮时的文字颜色 */
-.VPLocalSearchBox .result-list li.selected .titles,
-.VPLocalSearchBox .result-list li.selected .text {
-  color: #3b82f6 !important;
-  /* 选中时变蓝 */
-}
 
-/* 2. 手机端专属覆盖 (当屏幕宽度小于 768px 时) */
+/* ==========================================================================
+   6. 移动端适配 (Mobile)
+   ========================================================================== */
 @media (max-width: 768px) {
   :root {
-    /* 核心：切换为竖版手机图 */
     --bg-img: url('/bg-mobile.webp');
-
-    /* 建议：手机端为了字看得清，可以加一层淡淡的遮罩 */
-    /* 如果你的手机图本身已经处理得很暗了，这里可以填 none */
+    /* 确保你有这个图片 */
+    /* 手机端加深遮罩，防止字看不清 */
     --bg-overlay: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
   }
 
-  /* 修复背景显示逻辑，防止被导航栏遮挡 */
   html,
   body {
-    /* 手机端改用 scroll，避免部分浏览器地址栏伸缩导致背景跳动 */
     background-attachment: scroll !important;
-    background-position: center bottom !important;
-    /* 保证女孩始终在底部 */
+    /* 手机端取消 fixed 防止抖动 */
     background-size: cover !important;
+    background-position: center top !important;
+  }
+
+  /* 修复手机侧边栏顶部 */
+  .VPNavScreen {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    /* 手机菜单展开时给个深色背景 */
+    backdrop-filter: blur(20px) !important;
   }
 }
 
-/* --- 侧边栏：极致透明 (无磨砂版) --- */
-
-.VPSidebar {
-  /* 1. 背景：完全透明 (或者给极淡的黑底增强对比，任选其一) */
-  /* background-color: transparent !important; */
-  background-color: rgba(0, 0, 0, 0.05) !important;
-  /* 推荐：5% 的黑底，几乎看不见，但能稍微聚拢视线 */
-
-  /* 2. 核心：去除磨砂模糊 */
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-
-  /* 3. 边框：仅保留右侧一条淡淡的白线 */
-  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: none !important;
-}
-
-/* 4. 去除侧边栏内部的分组背景 (Logo区域等) */
-.VPSidebar>.group {
-  background-color: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-
-/* 5. 侧边栏文字增强 (因为背景透明了，文字必须加重阴影才能看清) */
-.VPSidebarItem .text {
+/* ==========================================================================
+   7. 文章标签透明化 (Article Tags)
+   ========================================================================== */
+.article-tags .tag {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: #ffffff !important;
-  /* 强力阴影：保证在白云或深蓝背景上都能看清 */
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
-  opacity: 0.9;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  font-weight: 500;
+  transition: all 0.3s ease;
 }
 
-/* 6. 选中项高亮 (给一个纯净的方块背景) */
-.VPSidebarItem.is-active .text {
-  color: #7dd3fc !important;
-  /* 天蓝色高亮 */
-  opacity: 1;
+.article-tags .tag:hover {
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* 选中项的背景块 */
-.VPSidebarItem.is-active {
+
+/* ==========================================================================
+   8. 评论区透明化 (Comment Section)
+   ========================================================================== */
+
+/* 评论区标题 */
+.comment-section .comment-title {
+  color: #ffffff !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* 评论表单容器 */
+.comment-form {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* 表单标题和标签 */
+.comment-form h3,
+.comment-form label,
+.comments-list h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* 输入框透明化 */
+.comment-form input,
+.comment-form textarea,
+.reply-form input,
+.reply-form textarea {
   background-color: rgba(255, 255, 255, 0.15) !important;
-  /* 半透明白块 */
-  border-radius: 6px;
-  /* 小圆角 */
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: 8px;
 }
 
-/* 7. 鼠标悬停效果 */
-.VPSidebarItem .text:hover {
-  opacity: 1;
+.comment-form input::placeholder,
+.comment-form textarea::placeholder,
+.reply-form input::placeholder,
+.reply-form textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.comment-form input:focus,
+.comment-form textarea:focus,
+.reply-form input:focus,
+.reply-form textarea:focus {
+  border-color: var(--vp-c-brand) !important;
+  box-shadow: 0 0 12px rgba(125, 211, 252, 0.3);
+  outline: none;
+}
+
+/* 提交按钮 */
+.comment-form .submit-btn,
+.reply-form .submit-btn {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
   color: #fff !important;
-  background-color: rgba(255, 255, 255, 0.05);
-  /* 极淡的悬停背景 */
 }
 
-/* --- 代码块优化：白水晶风格 --- */
-.vp-doc div[class*='language-'] {
-  /* 1. 背景：半透明乳白色 (调整 0.5 可以改变不透明度) */
-  background-color: rgba(255, 255, 255, 0.5) !important;
+.comment-form .submit-btn:hover,
+.reply-form .submit-btn:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+  transform: translateY(-2px);
+}
 
-  /* 2. 磨砂质感 */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/* 评论列表项 */
+.comment-item {
+  border-bottom-color: rgba(255, 255, 255, 0.15) !important;
+}
 
-  /* 3. 边框：亮白色描边，增加精致感 */
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-  /* 轻微阴影 */
+.comment-author {
+  color: var(--vp-c-brand) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.comment-date {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.comment-content {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* 回复区域 */
+.replies {
+  border-left-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.reply-form {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
 }
 
-/* 4. (可选) 强制代码文字颜色变深，防止白底白字 */
-/* 如果你发现代码文字看不清，把下面这段的注释打开 */
-/* .vp-doc div[class*='language-'] code {
-  color: #334155 !important; 
-  text-shadow: none !important;
-} 
-*/
-
-/* 5. 复制按钮优化 */
-.vp-doc div[class*='language-'] .copy {
-  color: rgba(0, 0, 0, 0.6) !important;
-}
-
-.vp-doc div[class*='language-'] .copy:hover {
-  background-color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* --- 侧边栏顶部 Logo 区域修复 --- */
-
-/* 1. 核心：去掉 Logo 区域的白底 */
-.VPSidebar>.group {
-  background-color: transparent !important;
-  /* 关键！变透明 */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  /* 把那条分割线变得极淡 */
-  box-shadow: none !important;
-  /* 去掉阴影 */
-}
-
-/* 2. 适配文字颜色 (白底变透后，字必须是白的) */
-.VPSidebar .VPNavBarTitle .text {
+/* 取消按钮 */
+.cancel-btn {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
   color: #ffffff !important;
-  /* 加重文字阴影，保证在白云背景上也能看清 */
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
-  font-weight: 600;
 }
 
-/* 3. (防万一) 针对移动端侧边栏顶部的特殊处理 */
-.VPNavScreen .group {
-  background-color: transparent !important;
+/* 回复按钮 */
+.reply-btn {
+  color: var(--vp-c-brand) !important;
+}
+
+/* 无评论提示 */
+.no-comments,
+.loading {
+  color: rgba(255, 255, 255, 0.75) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
