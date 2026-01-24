@@ -12,7 +12,7 @@ const trackingPlugin = createTrackingPlugin({
   endpoint: getTrackingEndpoint(), // 使用环境变量或相对路径
   batchSize: 5,         // 减小批量大小，更频繁发送
   batchInterval: 2000,  // 减少等待时间到2秒
-  debug: true,
+  debug: false,         // 生产环境关闭调试
   sampling: 1, // 100%采样率
   excludePaths: [
     '/admin*', // 排除管理界面
@@ -36,8 +36,18 @@ export default {
   extends: DefaultTheme,
   // 这里可以添加自定义主题配置
   enhanceApp({ app, router, siteData }) {
-    // 注册跟踪插件
-    trackingPlugin.install(router);
+    // 注册跟踪插件 (延迟加载)
+    if (typeof window !== 'undefined') {
+      import('vue').then(({ onMounted }) => {
+        // 使用 requestIdleCallback 在主线程空闲时初始化
+        // @ts-ignore
+        const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1000));
+
+        idleCallback(() => {
+          trackingPlugin.install(router);
+        });
+      });
+    }
 
     // 为特定元素添加指令式埋点
     app.directive('track', {
