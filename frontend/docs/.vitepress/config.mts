@@ -184,25 +184,5 @@ export default defineConfig({
     footer: {
       copyright: '© 2024-2025 StoneYu Blog.'
     }
-  },
-  vite: {
-    build: {
-      chunkSizeWarningLimit: 1000,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('vue')) {
-                return 'vendor-vue';
-              }
-              if (id.includes('vitepress')) {
-                return 'vendor-vitepress';
-              }
-              return 'vendor-others';
-            }
-          }
-        }
-      }
-    }
   }
 })
