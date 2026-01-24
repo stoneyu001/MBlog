@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -218,54 +217,58 @@ func UpdateSidebarConfig() error {
 
 // BuildSite 构建站点
 func BuildSite() error {
-	npmName := "npm"
-	if runtime.GOOS == "windows" {
-		npmName = "npm.cmd"
-	}
+	pnpmName := "pnpm"
 
 	log.Printf("开始构建站点...")
 	log.Printf("前端目录: %s", FrontendDir)
 
-	// 检查 npm 是否可用
-	checkCmd := exec.Command(npmName, "--version")
+	// 检查 pnpm 是否可用
+	checkCmd := exec.Command(pnpmName, "--version")
 	if out, err := checkCmd.CombinedOutput(); err != nil {
-		log.Printf("npm 检查失败: %v, 输出: %s", err, string(out))
-		return fmt.Errorf("npm 不可用: %v", err)
+		log.Printf("pnpm 检查失败: %v, 输出: %s", err, string(out))
+		return fmt.Errorf("pnpm 不可用: %v", err)
 	} else {
-		log.Printf("npm 版本: %s", strings.TrimSpace(string(out)))
+		log.Printf("pnpm 版本: %s", strings.TrimSpace(string(out)))
 	}
 
-	// 执行 npm install
-	log.Printf("执行 npm install...")
-	cmd := exec.Command(npmName, "install")
-	cmd.Dir = FrontendDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("npm install 失败: %v", err)
-		log.Printf("npm install 输出: %s", string(out))
-		return fmt.Errorf("npm install 失败: %v", err)
-	}
-	log.Printf("npm install 完成")
+	// 检查 node_modules 是否存在，存在则跳过 pnpm install（大幅提速）
+	nodeModulesPath := filepath.Join(FrontendDir, "node_modules")
+	pnpmLockPath := filepath.Join(FrontendDir, "pnpm-lock.yaml")
 
-	// 修复 node_modules/.bin 下可执行文件的权限（解决 Docker 挂载目录权限问题）
-	binDir := filepath.Join(FrontendDir, "node_modules", ".bin")
-	if runtime.GOOS != "windows" {
-		log.Printf("修复 %s 目录权限...", binDir)
-		chmodCmd := exec.Command("chmod", "-R", "+x", binDir)
-		if out, err := chmodCmd.CombinedOutput(); err != nil {
-			log.Printf("chmod 失败 (非致命): %v, 输出: %s", err, string(out))
+	needInstall := false
+	if _, err := os.Stat(nodeModulesPath); os.IsNotExist(err) {
+		needInstall = true
+		log.Printf("node_modules 不存在，需要执行 pnpm install")
+	} else if _, err := os.Stat(pnpmLockPath); os.IsNotExist(err) {
+		needInstall = true
+		log.Printf("pnpm-lock.yaml 不存在，需要执行 pnpm install")
+	} else {
+		log.Printf("node_modules 已存在，跳过 pnpm install")
+	}
+
+	if needInstall {
+		// 执行 pnpm install
+		log.Printf("执行 pnpm install...")
+		cmd := exec.Command(pnpmName, "install")
+		cmd.Dir = FrontendDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("pnpm install 失败: %v", err)
+			log.Printf("pnpm install 输出: %s", string(out))
+			return fmt.Errorf("pnpm install 失败: %v", err)
 		}
+		log.Printf("pnpm install 完成")
 	}
 
-	// 执行 npm run build
-	log.Printf("执行 npm run build...")
-	cmd = exec.Command(npmName, "run", "build")
+	// 执行 pnpm run build
+	log.Printf("执行 pnpm run build...")
+	cmd := exec.Command(pnpmName, "run", "build")
 	cmd.Dir = FrontendDir
 	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("npm run build 失败: %v", err)
-		log.Printf("npm run build 输出: %s", string(out))
-		return fmt.Errorf("npm run build 失败: %v", err)
+		log.Printf("pnpm run build 失败: %v", err)
+		log.Printf("pnpm run build 输出: %s", string(out))
+		return fmt.Errorf("pnpm run build 失败: %v\n输出: %s", err, string(out))
 	}
-	log.Printf("npm run build 完成")
+	log.Printf("pnpm run build 完成")
 
 	log.Println("站点构建成功")
 	return nil

@@ -36,11 +36,12 @@ ENV TZ=Asia/Shanghai
 # 安装必要的运行时依赖
 # - ca-certificates: HTTPS 请求需要
 # - tzdata: 时区数据
-# - nodejs, npm: 用于构建前端站点
+# - nodejs, npm: 用于安装 pnpm
 # - git: VitePress 构建时需要
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk update && \
     apk add --no-cache ca-certificates tzdata nodejs npm git && \
+    npm install -g pnpm && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
     rm -rf /var/cache/apk/*
