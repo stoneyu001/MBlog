@@ -229,3 +229,41 @@ html.dark .VPLocalSearchBox .search-input {
     background-size: cover !important;
   }
 }
+
+/* --- 📄 文章详情页专项优化 --- */
+
+/* 1. 左侧导航栏 (Sidebar) 玻璃化 */
+.VPSidebar {
+  background-color: var(--glass-bg) !important;
+  /* 复用之前的玻璃变量 */
+  backdrop-filter: blur(10px);
+  border-right: 1px solid var(--glass-border) !important;
+}
+
+/* 2. 侧边栏文字颜色修正 (黑字变白字) */
+.VPSidebarItem .text {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  /* 加阴影防看不清 */
+}
+
+/* 3. 侧边栏选中项/悬停项高亮 */
+.VPSidebarItem.is-active .text,
+.VPSidebarItem .text:hover {
+  color: var(--vp-c-brand) !important;
+  /* 变成天蓝色 */
+  text-shadow: none;
+}
+
+/* 选中项的小竖条背景 */
+.VPSidebarItem.is-active {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 让代码块也稍微透一点，融入背景 */
+.vp-doc div[class*='language-'] {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  /* 深色半透明 */
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
