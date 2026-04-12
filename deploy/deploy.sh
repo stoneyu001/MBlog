@@ -14,7 +14,7 @@
 #
 # ============================================
 
-set -euo pipefail
+set -uo pipefail
 
 # ============================================
 # 配置区域
@@ -72,6 +72,11 @@ check_prerequisites() {
     fi
     success "Docker Compose 已就绪"
 
+    # 检查 curl（健康检查需要）
+    if ! command -v curl &> /dev/null; then
+        apt install -y curl
+    fi
+
     # 检查 Nginx (宿主机)
     if ! command -v nginx &> /dev/null; then
         warn "宿主机 Nginx 未安装，正在安装..."
@@ -82,13 +87,20 @@ check_prerequisites() {
         success "Nginx $(nginx -v 2>&1 | awk -F/ '{print $2}')"
     fi
 
-    # 检查 Certbot
+    # 检查 Certbot 及 nginx 插件
     if ! command -v certbot &> /dev/null; then
         warn "Certbot 未安装，正在安装..."
         apt update && apt install -y certbot python3-certbot-nginx
         success "Certbot 安装完成"
     else
         success "Certbot 已就绪"
+    fi
+
+    # 确保 certbot nginx 插件已安装
+    if ! python3 -c "import certbot_nginx" &> /dev/null 2>&1; then
+        warn "Certbot Nginx 插件未安装，正在安装..."
+        apt update && apt install -y python3-certbot-nginx
+        success "Certbot Nginx 插件安装完成"
     fi
 
     echo ""
@@ -197,14 +209,13 @@ setup_ssl() {
         echo ""
 
         # 使用 nginx 插件申请证书
-        certbot --nginx \
+        if certbot --nginx \
             -d "$DOMAIN" \
             --non-interactive \
             --agree-tos \
-            --email "[EMAIL_ADDRESS]" \
-            --redirect
+            --email "2065802923@qq.com" \
+            --redirect; then
 
-        if [ $? -eq 0 ]; then
             success "SSL 证书申请成功！"
 
             # 证书申请成功后，部署完整的 SSL Nginx 配置
@@ -288,7 +299,7 @@ start_docker() {
     # 健康检查
     local max_retries=30
     local retry=0
-    info "等待后端服务就实..."
+    info "等待后端服务就绪..."
 
     while [ $retry -lt $max_retries ]; do
         if curl -sf http://127.0.0.1:8080 > /dev/null 2>&1; then
@@ -344,6 +355,12 @@ main() {
         "--restart" | "-r")
             info "模式: 仅重启服务"
             echo ""
+            # 初始化 COMPOSE_CMD
+            if docker compose version &> /dev/null; then
+                COMPOSE_CMD="docker compose"
+            else
+                COMPOSE_CMD="docker-compose"
+            fi
             start_docker "restart"
             ;;
         *)
