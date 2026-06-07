@@ -51,18 +51,17 @@ func Init() error {
 
 // resolvePath 解析文件路径，返回绝对路径和分类
 func resolvePath(filename string) (fullPath string, category string, err error) {
+	// 拒绝绝对路径
+	if filepath.IsAbs(filename) {
+		return "", "", fmt.Errorf("非法路径: 不允许绝对路径")
+	}
+
 	filename = filepath.ToSlash(filepath.Clean(filename))
 	if strings.Contains(filename, "..") {
 		return "", "", fmt.Errorf("非法路径")
 	}
 
-	// 移除可能的绝对路径前缀
-	docsDir := filepath.ToSlash(filepath.Join(FrontendDir, "docs"))
-	if strings.HasPrefix(filename, docsDir) {
-		filename = strings.TrimPrefix(filename, docsDir+"/")
-	}
-
-	// 确定分类
+	// 确定分类和目录
 	category = "tech"
 	targetDir := ArticlesDirs["tech"]
 	subPath := filename
@@ -78,6 +77,21 @@ func resolvePath(filename string) (fullPath string, category string, err error) 
 	}
 
 	fullPath = filepath.Join(targetDir, subPath)
+
+	// 解析符号链接并验证最终路径在允许的 docs 目录内
+	docsDir := filepath.Join(FrontendDir, "docs")
+	resolved, err := filepath.EvalSymlinks(fullPath)
+	if err == nil {
+		fullPath = resolved
+	}
+	docsDirResolved, err := filepath.EvalSymlinks(docsDir)
+	if err != nil {
+		docsDirResolved = docsDir
+	}
+	if !strings.HasPrefix(filepath.ToSlash(fullPath), filepath.ToSlash(docsDirResolved)+"/") {
+		return "", "", fmt.Errorf("非法路径: 超出允许范围")
+	}
+
 	return fullPath, category, nil
 }
 

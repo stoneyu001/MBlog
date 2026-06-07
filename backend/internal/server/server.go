@@ -10,6 +10,7 @@ import (
 	"blog/internal/router"
 	"blog/internal/comments"
 	"blog/internal/filemanager"
+	"blog/internal/repository"
 	"blog/internal/tracking"
 
 	"github.com/gin-gonic/gin"
@@ -44,8 +45,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	if initErr != nil {
 		log.Printf("埋点数据库初始化最终失败: %v", initErr)
 	}
-	trackingService := tracking.NewTrackingService(db)
-	analyticsService := tracking.NewAnalyticsService(db)
+	trackingRepo := repository.NewTrackingRepo(db)
+	trackingService := tracking.NewTrackingService(trackingRepo)
+	analyticsService := tracking.NewAnalyticsService(trackingRepo)
 
 	// 初始化评论服务（带重试机制）
 	for i := 0; i < maxRetries; i++ {
@@ -59,7 +61,8 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	if initErr != nil {
 		log.Printf("评论数据库初始化最终失败: %v", initErr)
 	}
-	commentService := comments.NewCommentService(db)
+	commentRepo := repository.NewCommentRepo(db)
+	commentService := comments.NewCommentService(commentRepo)
 
 	// 初始化文件管理器
 	if err := filemanager.Init(); err != nil {

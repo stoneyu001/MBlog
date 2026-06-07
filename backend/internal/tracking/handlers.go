@@ -89,7 +89,12 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	// 解析原始JSON
 	var events []map[string]interface{}
 
-	body, _ := c.GetRawData()
+	body, err := c.GetRawData()
+	if err != nil {
+		log.Printf("读取请求体失败: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "读取请求数据失败"})
+		return
+	}
 	log.Printf("接收到原始批量请求数据: %s", string(body))
 
 	if err := json.Unmarshal(body, &events); err != nil {
@@ -242,10 +247,7 @@ func convertToInt(v interface{}) int {
 
 // 跟踪服务状态
 func (ts *TrackingService) handleTrackingStatus(c *gin.Context) {
-	// 查询数据库中总埋点数量
-	var count int64
-	err := ts.db.QueryRow("SELECT COUNT(*) FROM track_event").Scan(&count)
-
+	count, err := ts.repo.CountAll()
 	status := "active"
 	if err != nil {
 		status = "error"

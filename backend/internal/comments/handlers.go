@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"blog/internal/middleware"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,8 +21,8 @@ func (cs *CommentService) RegisterHandlers(r *gin.Engine) {
 	// 获取文章评论
 	r.GET("/api/comments/:articleId", cs.handleGetCommentsByArticle)
 
-	// 管理API，可以增加授权中间件
-	admin := r.Group("/api/admin/comments")
+	// 管理API（需要登录）
+	admin := r.Group("/api/admin/comments", middleware.RequireAuth())
 	{
 		admin.DELETE("/:id", cs.handleDeleteComment)
 		admin.PUT("/:id/status", cs.handleUpdateCommentStatus)

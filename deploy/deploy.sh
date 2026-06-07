@@ -130,6 +130,11 @@ setup_env() {
         error ".env 中的数据库密码尚未修改，请先编辑 .env 文件"
     fi
 
+    # 验证 JWT 密钥已修改
+    if grep -q "your-secret-key-should-be-complex" "$PROJECT_DIR/.env" 2>/dev/null; then
+        error ".env 中的 JWT_SECRET 尚未修改，请先编辑 .env 文件"
+    fi
+
     success ".env 配置已就绪"
 }
 
@@ -208,23 +213,14 @@ setup_ssl() {
         warn "请确保域名 DNS 已正确指向此服务器"
         echo ""
 
-<<<<<<< HEAD:deploy/deploy.sh
         # 使用 webroot 方式申请证书（不修改 Nginx 配置，与手动维护的配置解耦）
         if certbot certonly --webroot \
             -w "$CERTBOT_WEBROOT" \
             -d "$DOMAIN" \
+            -d "stoneyu.fun" \
             --non-interactive \
             --agree-tos \
             --email "2065802923@qq.com"; then
-=======
-        # 使用 nginx 插件申请证书
-        if certbot --nginx \
-            -d "$DOMAIN" \
-            --non-interactive \
-            --agree-tos \
-            --email "2065802923@qq.com" \
-            --redirect; then
->>>>>>> 7bca0069ee50fb710727878e8ac68f76c08647e3:deploy.sh
 
             success "SSL 证书申请成功！"
 
@@ -238,6 +234,24 @@ setup_ssl() {
         fi
     else
         success "SSL 证书已存在"
+
+        # 检查证书是否已覆盖裸域名，若未覆盖则扩展证书
+        if ! openssl x509 -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" -text -noout 2>/dev/null | grep -q "DNS:stoneyu.fun"; then
+            info "证书未覆盖裸域名 stoneyu.fun，正在扩展..."
+            if certbot certonly --webroot \
+                -w "$CERTBOT_WEBROOT" \
+                -d "$DOMAIN" \
+                -d "stoneyu.fun" \
+                --expand \
+                --non-interactive \
+                --agree-tos \
+                --email "2065802923@qq.com"; then
+                success "证书已扩展覆盖 stoneyu.fun"
+                systemctl reload nginx
+            else
+                warn "证书扩展失败，stoneyu.fun 可能无法访问"
+            fi
+        fi
 
         # 检查是否需要续签
         info "尝试续签..."

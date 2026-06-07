@@ -118,7 +118,7 @@ func Login(c *gin.Context) {
 			int(TokenExpiration.Seconds()),
 			"/",
 			"",
-			false, // 生产环境建议设为 true (HTTPS)
+			true,  // 全站 HTTPS，Cookie 仅通过加密连接发送
 			true,  // HttpOnly
 		)
 
@@ -137,7 +137,7 @@ func Login(c *gin.Context) {
 // Logout 处理登出请求
 func Logout(c *gin.Context) {
 	// 清除 Cookie
-	c.SetCookie(TokenCookieName, "", -1, "/", "", false, true)
+	c.SetCookie(TokenCookieName, "", -1, "/", "", true, true)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "已登出",

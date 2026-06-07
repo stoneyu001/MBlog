@@ -1,23 +1,22 @@
 package tracking
 
 import (
-	"database/sql"
 	"log"
-	"net/url"
-	"strings"
+
+	"blog/internal/repository"
 )
 
-// AnalyticsService 处理统计分析
+// AnalyticsService 统计分析服务
 type AnalyticsService struct {
-	db *sql.DB
+	repo *repository.TrackingRepo
 }
 
-// NewAnalyticsService 创建新的统计服务
-func NewAnalyticsService(db *sql.DB) *AnalyticsService {
-	return &AnalyticsService{db: db}
+// NewAnalyticsService 创建统计分析服务
+func NewAnalyticsService(repo *repository.TrackingRepo) *AnalyticsService {
+	return &AnalyticsService{repo: repo}
 }
 
-// StatsResponse 统计数据响应结构
+// StatsResponse 统计数据响应
 type StatsResponse struct {
 	Overview  OverviewStats   `json:"overview"`
 	Trend     []DailyStats    `json:"trend"`
@@ -35,7 +34,7 @@ type OverviewStats struct {
 	TodayUV     int64 `json:"today_uv"`
 	YesterdayPV int64 `json:"yesterday_pv"`
 	YesterdayUV int64 `json:"yesterday_uv"`
-	OnlineUsers int64 `json:"online_users"` // 过去5分钟活跃
+	OnlineUsers int64 `json:"online_users"`
 }
 
 type DailyStats struct {
@@ -46,7 +45,7 @@ type DailyStats struct {
 
 type PageStats struct {
 	Path  string `json:"path"`
-	Title string `json:"title"` // 预留，目前可能和Path一样
+	Title string `json:"title"`
 	PV    int64  `json:"pv"`
 	UV    int64  `json:"uv"`
 }
@@ -56,205 +55,61 @@ type CategoryStats struct {
 	Value int64  `json:"value"`
 }
 
-// GetFullStats 获取所有统计数据
+// GetFullStats 获取完整统计数据
 func (s *AnalyticsService) GetFullStats() (*StatsResponse, error) {
 	resp := &StatsResponse{}
-	var err error
 
-	if resp.Overview, err = s.getOverviewStats(); err != nil {
+	overview, err := s.repo.OverviewStats()
+	if err != nil {
 		log.Printf("获取概览数据失败: %v", err)
 	}
+	resp.Overview = OverviewStats{
+		TotalPV:     overview.TotalPV,
+		TotalUV:     overview.TotalUV,
+		TodayPV:     overview.TodayPV,
+		TodayUV:     overview.TodayUV,
+		YesterdayPV: overview.YesterdayPV,
+		YesterdayUV: overview.YesterdayUV,
+		OnlineUsers: overview.OnlineUsers,
+	}
 
-	if resp.Trend, err = s.getTrendStats(7); err != nil {
+	dailyStats, err := s.repo.DailyStats(7)
+	if err != nil {
 		log.Printf("获取趋势数据失败: %v", err)
 	}
-
-	if resp.TopPages, err = s.getTopPages(10); err != nil {
-		log.Printf("获取热门页面失败: %v", err)
+	for _, d := range dailyStats {
+		resp.Trend = append(resp.Trend, DailyStats{Date: d.Date, PV: d.PV, UV: d.UV})
 	}
 
-	if resp.Devices, err = s.getCategoryStats("device_type"); err != nil {
-		log.Printf("获取设备统计失败: %v", err)
+	topPages, err := s.repo.TopPages(10)
+	if err != nil {
+		log.Printf("获取热门页面失败: %v", err)
+	}
+	for _, p := range topPages {
+		resp.TopPages = append(resp.TopPages, PageStats{Path: p.Path, Title: p.Title, PV: p.PV, UV: p.UV})
 	}
 
 	// 注意: track_event.platform 列存储的是操作系统名称 (Windows/macOS/Linux 等)
-	if resp.OS, err = s.getCategoryStats("platform"); err != nil {
-		log.Printf("获取系统统计失败: %v", err)
+	for _, c := range toCategoryStats(s.repo.CategoryStats("device_type")) {
+		resp.Devices = append(resp.Devices, c)
 	}
-
-	// 浏览器统计需要解析 user_agent，这里简化处理，假设 metadata 中有 browser 字段
-	// 或者我们直接查询 metadata->>'browser'
-	if resp.Browsers, err = s.getMetadataStats("browser"); err != nil {
-		log.Printf("获取浏览器统计失败: %v", err)
+	for _, c := range toCategoryStats(s.repo.CategoryStats("platform")) {
+		resp.OS = append(resp.OS, c)
+	}
+	for _, c := range toCategoryStats(s.repo.MetadataStats("browser")) {
+		resp.Browsers = append(resp.Browsers, c)
 	}
 
 	return resp, nil
 }
 
-func (s *AnalyticsService) getOverviewStats() (OverviewStats, error) {
-	var stats OverviewStats
-
-	// 总计 - PV 只统计页面访问事件，UV 统计所有唯一会话
-	s.db.QueryRow(`
-		SELECT COUNT(*), COUNT(DISTINCT session_id) 
-		FROM track_event 
-		WHERE event_type = 'PAGEVIEW'
-	`).Scan(&stats.TotalPV, &stats.TotalUV)
-
-	// 今日 (使用数据库时间，注意时区)
-	todayQuery := `
-		SELECT COUNT(*), COUNT(DISTINCT session_id) 
-		FROM track_event 
-		WHERE created_at >= CURRENT_DATE
-		  AND event_type = 'PAGEVIEW'`
-	s.db.QueryRow(todayQuery).Scan(&stats.TodayPV, &stats.TodayUV)
-
-	// 昨日
-	yesterdayQuery := `
-		SELECT COUNT(*), COUNT(DISTINCT session_id) 
-		FROM track_event 
-		WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' 
-		AND created_at < CURRENT_DATE
-		AND event_type = 'PAGEVIEW'`
-	s.db.QueryRow(yesterdayQuery).Scan(&stats.YesterdayPV, &stats.YesterdayUV)
-
-	// 在线用户 (过去5分钟)
-	onlineQuery := `
-		SELECT COUNT(DISTINCT session_id) 
-		FROM track_event 
-		WHERE created_at >= NOW() - INTERVAL '5 minutes'`
-	s.db.QueryRow(onlineQuery).Scan(&stats.OnlineUsers)
-
-	return stats, nil
-}
-
-func (s *AnalyticsService) getTrendStats(days int) ([]DailyStats, error) {
-	query := `
-		SELECT 
-			TO_CHAR(created_at, 'YYYY-MM-DD') as date,
-			COUNT(*) as pv,
-			COUNT(DISTINCT session_id) as uv
-		FROM track_event
-		WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-		  AND event_type = 'PAGEVIEW'
-		GROUP BY date
-		ORDER BY date ASC
-	`
-	rows, err := s.db.Query(query)
+func toCategoryStats(stats []repository.CategoryStat, err error) []CategoryStats {
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	defer rows.Close()
-
-	results := make([]DailyStats, 0)
-	for rows.Next() {
-		var d DailyStats
-		if err := rows.Scan(&d.Date, &d.PV, &d.UV); err != nil {
-			continue
-		}
-		results = append(results, d)
+	result := make([]CategoryStats, len(stats))
+	for i, s := range stats {
+		result[i] = CategoryStats{Name: s.Name, Value: s.Value}
 	}
-	return results, nil
-}
-
-func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
-	// 排除静态资源、管理页面和损坏的数据（包含?的记录）
-	query := `
-		SELECT 
-			page_path, 
-			COUNT(*) as pv,
-			COUNT(DISTINCT session_id) as uv
-		FROM track_event
-		WHERE page_path NOT LIKE '/static/%' 
-		  AND page_path NOT LIKE '/admin%'
-		  AND page_path NOT LIKE '%?%'
-		  AND page_path != ''
-		  AND page_path != '/'
-		  AND event_type = 'PAGEVIEW'
-		GROUP BY page_path
-		ORDER BY pv DESC
-		LIMIT $1
-	`
-	rows, err := s.db.Query(query, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	results := make([]PageStats, 0)
-	for rows.Next() {
-		var p PageStats
-		if err := rows.Scan(&p.Path, &p.PV, &p.UV); err != nil {
-			continue
-		}
-		// URL解码页面路径，将 %E6%95%B0 这样的编码转为中文
-		if decoded, err := url.QueryUnescape(p.Path); err == nil {
-			p.Path = decoded
-		}
-		// 去掉 .html 后缀
-		p.Path = strings.TrimSuffix(p.Path, ".html")
-		p.Title = p.Path // 暂时用路径作为标题
-		results = append(results, p)
-	}
-	return results, nil
-}
-
-func (s *AnalyticsService) getCategoryStats(column string) ([]CategoryStats, error) {
-	// 白名单校验，防止 SQL 注入
-	allowedColumns := map[string]bool{
-		"device_type": true,
-		"platform":    true,
-	}
-	if !allowedColumns[column] {
-		return nil, nil
-	}
-
-	query := "SELECT " + column + ", COUNT(*) as count FROM track_event WHERE " + column + " IS NOT NULL AND " + column + " != '' GROUP BY " + column + " ORDER BY count DESC LIMIT 10"
-
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	results := make([]CategoryStats, 0)
-	for rows.Next() {
-		var c CategoryStats
-		if err := rows.Scan(&c.Name, &c.Value); err != nil {
-			continue
-		}
-		results = append(results, c)
-	}
-	return results, nil
-}
-
-func (s *AnalyticsService) getMetadataStats(key string) ([]CategoryStats, error) {
-	// 查询 JSONB 字段
-	query := `
-		SELECT 
-			metadata->>$1 as name, 
-			COUNT(*) as count 
-		FROM track_event 
-		WHERE metadata->>$1 IS NOT NULL 
-		  AND metadata->>$1 != '' 
-		GROUP BY name 
-		ORDER BY count DESC 
-		LIMIT 10
-	`
-
-	rows, err := s.db.Query(query, key)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	results := make([]CategoryStats, 0)
-	for rows.Next() {
-		var c CategoryStats
-		if err := rows.Scan(&c.Name, &c.Value); err != nil {
-			continue
-		}
-		results = append(results, c)
-	}
-	return results, nil
+	return result
 }
