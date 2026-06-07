@@ -3,7 +3,7 @@ package handler
 import (
 	"log"
 
-	"blog/pkg/tracking"
+	"blog/internal/tracking"
 
 	"github.com/gin-gonic/gin"
 )

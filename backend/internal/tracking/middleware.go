@@ -181,9 +181,6 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 			// 计算所有事件之间的持续时间（不限制事件类型）
 			// 上限设为1小时（3600秒），避免异常值
 			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
-
-			// 计算事件持续时间
-			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
 		}
 	}
 
@@ -390,16 +387,21 @@ func (ts *TrackingService) TrackingMiddleware() gin.HandlerFunc {
 		query := c.Request.URL.RawQuery
 
 		// 对其他请求自动记录REQUEST事件
+		ua := c.Request.UserAgent()
+		platform, _ := extractPlatformFromUA(ua)
+		deviceType := extractDeviceTypeFromUA(ua)
 		event := &UnpartitionedTrackEvent{
 			EventType:        "REQUEST",
 			PagePath:         pagePath,
-			UserAgent:        c.Request.UserAgent(),
+			UserAgent:        ua,
 			IPAddress:        c.ClientIP(),
 			CreatedAt:        time.Now().In(chinaLocation),
 			CustomProperties: createCustomProperties(method, query),
 			UserID:           deviceFingerprint,   // 使用设备指纹作为user_id
 			SessionID:        sessionID,           // 使用会话ID
 			Referrer:         c.Request.Referer(), // 添加来源页面
+			Platform:         platform,            // 从 UserAgent 解析操作系统
+			DeviceType:       deviceType,          // 从 UserAgent 解析设备类型
 		}
 
 		// 如果没有设备指纹，使用一个临时ID

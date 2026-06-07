@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"blog/pkg/filemanager"
+	"blog/internal/filemanager"
 
 	"github.com/gin-gonic/gin"
 )
@@ -63,22 +63,18 @@ func (h *FileHandler) SaveFile(c *gin.Context) {
 		return
 	}
 
-	// 检查是否需要重命名（删除旧文件）
-	if req.OriginalFilename != "" && req.OriginalFilename != req.Filename {
-		log.Printf("检测到重命名操作: %s -> %s", req.OriginalFilename, req.Filename)
-		if err := filemanager.DeleteFile(req.OriginalFilename); err != nil {
-			log.Printf("重命名时删除旧文件失败: %v", err)
-		}
-	}
-
+	// 先保存新文件
 	if err := filemanager.SaveFile(req.Filename, req.Content); err != nil {
 		c.JSON(500, gin.H{"error": "保存文件失败"})
 		return
 	}
 
-	// 更新侧边栏配置
-	if err := filemanager.UpdateSidebarConfig(); err != nil {
-		log.Printf("更新侧边栏配置失败: %v", err)
+	// 保存成功后再处理重命名：删除旧文件
+	if req.OriginalFilename != "" && req.OriginalFilename != req.Filename {
+		log.Printf("检测到重命名操作: %s -> %s", req.OriginalFilename, req.Filename)
+		if err := filemanager.DeleteFile(req.OriginalFilename); err != nil {
+			log.Printf("重命名时删除旧文件失败: %v", err)
+		}
 	}
 
 	c.JSON(200, gin.H{"status": "success"})
@@ -98,11 +94,6 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		log.Printf("删除文件失败: %v", err)
 		c.JSON(500, gin.H{"error": fmt.Sprintf("删除失败: %v", err)})
 		return
-	}
-
-	// 更新侧边栏配置
-	if err := filemanager.UpdateSidebarConfig(); err != nil {
-		log.Printf("更新侧边栏配置失败: %v", err)
 	}
 
 	c.JSON(200, gin.H{"status": "success"})
@@ -129,15 +120,6 @@ func (h *FileHandler) UploadFiles(c *gin.Context) {
 	var errorMsgs []string
 
 	for _, file := range files {
-
-		src, err := file.Open()
-		if err != nil {
-			failCount++
-			errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 打开失败", file.Filename))
-			continue
-		}
-		defer src.Close()
-
 		// 限制文件大小 10MB
 		if file.Size > 10*1024*1024 {
 			failCount++
@@ -145,8 +127,16 @@ func (h *FileHandler) UploadFiles(c *gin.Context) {
 			continue
 		}
 
+		src, err := file.Open()
+		if err != nil {
+			failCount++
+			errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 打开失败", file.Filename))
+			continue
+		}
+
 		contentBytes := make([]byte, file.Size)
 		_, err = src.Read(contentBytes)
+		src.Close() // 立即关闭，避免循环内 defer 堆积 FD
 		if err != nil {
 			failCount++
 			errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 读取失败", file.Filename))
@@ -158,13 +148,6 @@ func (h *FileHandler) UploadFiles(c *gin.Context) {
 			errorMsgs = append(errorMsgs, fmt.Sprintf("%s: 保存失败 - %v", file.Filename, err))
 		} else {
 			successCount++
-		}
-	}
-
-	// 更新侧边栏
-	if successCount > 0 {
-		if err := filemanager.UpdateSidebarConfig(); err != nil {
-			log.Printf("批量上传后更新侧边栏失败: %v", err)
 		}
 	}
 

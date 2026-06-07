@@ -77,7 +77,7 @@ func (s *AnalyticsService) GetFullStats() (*StatsResponse, error) {
 		log.Printf("获取设备统计失败: %v", err)
 	}
 
-	// 从 user_agent 或 platform 字段统计
+	// 注意: track_event.platform 列存储的是操作系统名称 (Windows/macOS/Linux 等)
 	if resp.OS, err = s.getCategoryStats("platform"); err != nil {
 		log.Printf("获取系统统计失败: %v", err)
 	}
@@ -200,7 +200,15 @@ func (s *AnalyticsService) getTopPages(limit int) ([]PageStats, error) {
 }
 
 func (s *AnalyticsService) getCategoryStats(column string) ([]CategoryStats, error) {
-	// 动态列名查询需要小心 SQL 注入，但这里是内部调用，column 是受控的
+	// 白名单校验，防止 SQL 注入
+	allowedColumns := map[string]bool{
+		"device_type": true,
+		"platform":    true,
+	}
+	if !allowedColumns[column] {
+		return nil, nil
+	}
+
 	query := "SELECT " + column + ", COUNT(*) as count FROM track_event WHERE " + column + " IS NOT NULL AND " + column + " != '' GROUP BY " + column + " ORDER BY count DESC LIMIT 10"
 
 	rows, err := s.db.Query(query)

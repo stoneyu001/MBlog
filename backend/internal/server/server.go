@@ -8,9 +8,9 @@ import (
 	"blog/internal/config"
 	"blog/internal/database"
 	"blog/internal/router"
-	"blog/pkg/comments"
-	"blog/pkg/filemanager"
-	"blog/pkg/tracking"
+	"blog/internal/comments"
+	"blog/internal/filemanager"
+	"blog/internal/tracking"
 
 	"github.com/gin-gonic/gin"
 )

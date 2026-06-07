@@ -3,8 +3,8 @@ package router
 import (
 	"blog/internal/handler"
 	"blog/internal/middleware"
-	"blog/pkg/comments"
-	"blog/pkg/tracking"
+	"blog/internal/comments"
+	"blog/internal/tracking"
 
 	"github.com/gin-gonic/gin"
 )

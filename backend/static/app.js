@@ -30,6 +30,8 @@ function adminApp() {
         files: [],
         searchQuery: '',
         isBuilding: false,
+        isLoading: true,                    // 文件列表加载状态
+        sidebarOpen: false,                // 移动端侧边栏开关
         toast: { show: false, message: '' },
 
         importModal: {
@@ -54,7 +56,8 @@ function adminApp() {
 
         get filteredFiles() {
             if (!this.searchQuery) return this.files;
-            return this.files.filter(f => f.toLowerCase().includes(this.searchQuery.toLowerCase()));
+            const q = this.searchQuery.toLowerCase();
+            return this.files.filter(f => f.split('/').pop().toLowerCase().includes(q));
         },
 
         showToastMsg(msg) {
@@ -65,6 +68,7 @@ function adminApp() {
 
         // --- API 模拟与交互 ---
         loadFileList() {
+            this.isLoading = true;
             fetch('/api/files', { credentials: 'include' })
                 .then(res => {
                     if (res.status === 401) {
@@ -77,18 +81,17 @@ function adminApp() {
                 .catch(err => {
                     console.error('Failed to load files:', err);
                     this.showToastMsg('加载文件列表失败');
-                });
+                })
+                .finally(() => { this.isLoading = false; });
         },
 
         rebuildSite() {
             this.isBuilding = true;
             fetch('/api/build', { method: 'POST', credentials: 'include' })
                 .then(res => {
-                    setTimeout(() => {
-                        this.isBuilding = false;
-                        if (res.ok) this.showToastMsg('站点构建成功');
-                        else this.showToastMsg('站点构建失败');
-                    }, 1000);
+                    this.isBuilding = false;
+                    if (res.ok) this.showToastMsg('站点构建成功');
+                    else this.showToastMsg('站点构建失败');
                 })
                 .catch(err => {
                     this.isBuilding = false;

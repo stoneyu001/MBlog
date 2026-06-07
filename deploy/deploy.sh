@@ -208,6 +208,7 @@ setup_ssl() {
         warn "请确保域名 DNS 已正确指向此服务器"
         echo ""
 
+<<<<<<< HEAD:deploy/deploy.sh
         # 使用 webroot 方式申请证书（不修改 Nginx 配置，与手动维护的配置解耦）
         if certbot certonly --webroot \
             -w "$CERTBOT_WEBROOT" \
@@ -215,6 +216,15 @@ setup_ssl() {
             --non-interactive \
             --agree-tos \
             --email "2065802923@qq.com"; then
+=======
+        # 使用 nginx 插件申请证书
+        if certbot --nginx \
+            -d "$DOMAIN" \
+            --non-interactive \
+            --agree-tos \
+            --email "2065802923@qq.com" \
+            --redirect; then
+>>>>>>> 7bca0069ee50fb710727878e8ac68f76c08647e3:deploy.sh
 
             success "SSL 证书申请成功！"
 

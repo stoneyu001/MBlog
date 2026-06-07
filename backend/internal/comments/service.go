@@ -17,45 +17,6 @@ func NewCommentService(db *sql.DB) *CommentService {
 		db: db,
 	}
 }
-
-// Init 初始化评论系统数据库表
-func (cs *CommentService) Init() error {
-	// 创建评论表
-	_, err := cs.db.Exec(`
-		CREATE TABLE IF NOT EXISTS comments (
-			id SERIAL PRIMARY KEY,
-			article_id VARCHAR(100) NOT NULL,
-			nickname VARCHAR(100) NOT NULL,
-			email VARCHAR(100),
-			content TEXT NOT NULL,
-			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			ip_address VARCHAR(50),
-			status VARCHAR(20) DEFAULT 'approved',
-			reply_to INTEGER DEFAULT NULL,
-			user_agent TEXT
-		)
-	`)
-	if err != nil {
-		log.Printf("创建评论表失败: %v", err)
-		return err
-	}
-
-	// 创建索引
-	_, err = cs.db.Exec(`
-		CREATE INDEX IF NOT EXISTS idx_comments_article_id ON comments(article_id);
-		CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at);
-		CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
-		CREATE INDEX IF NOT EXISTS idx_comments_reply_to ON comments(reply_to);
-	`)
-	if err != nil {
-		log.Printf("创建评论索引失败: %v", err)
-		return err
-	}
-
-	log.Println("评论系统数据库初始化成功")
-	return nil
-}
-
 // AddComment 添加一条评论
 func (cs *CommentService) AddComment(comment *Comment) (int, error) {
 	// 设置客户端编码为UTF8

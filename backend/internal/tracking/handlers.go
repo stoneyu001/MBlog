@@ -106,14 +106,15 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 		return
 	}
 
-	if len(events) > 200 {
-		log.Printf("警告: 批量请求超过200个事件，将只处理前200个")
-		events = events[:200]
-	}
-
 	log.Printf("收到批量请求，事件数量: %d", len(events))
 	validEvents := 0
 	invalidEvents := 0
+
+	if len(events) > 200 {
+		log.Printf("警告: 批量请求超过200个事件，将只处理前200个")
+		invalidEvents = len(events) - 200
+		events = events[:200]
+	}
 
 	// 处理每个事件
 	for i, eventMap := range events {

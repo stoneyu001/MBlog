@@ -3,21 +3,42 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// 默认管理员凭据 - 可通过环境变量修改
+// Token 配置常量
 const (
-	DefaultAdminUser     = "admin"
-	DefaultAdminPassword = "admin123"
-	TokenCookieName      = "mblog_token"
-	TokenExpiration      = 24 * time.Hour
-	// TODO: 生产环境应从环境变量加载 Secret
-	JWTSecret = "your-secret-key-should-be-complex"
+	TokenCookieName = "mblog_token"
+	TokenExpiration = 24 * time.Hour
 )
+
+// getAdminUser 从环境变量获取管理员用户名
+func getAdminUser() string {
+	if user := os.Getenv("ADMIN_USER"); user != "" {
+		return user
+	}
+	return "admin"
+}
+
+// getAdminPassword 从环境变量获取管理员密码
+func getAdminPassword() string {
+	if pass := os.Getenv("ADMIN_PASSWORD"); pass != "" {
+		return pass
+	}
+	return "admin123"
+}
+
+// getJWTSecret 从环境变量获取 JWT 密钥
+func getJWTSecret() string {
+	if secret := os.Getenv("JWT_SECRET"); secret != "" {
+		return secret
+	}
+	return "your-secret-key-should-be-complex"
+}
 
 // Claims 自定义 JWT Claims
 type Claims struct {
@@ -44,7 +65,7 @@ func GenerateToken(username string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(JWTSecret))
+	return token.SignedString([]byte(getJWTSecret()))
 }
 
 // ParseToken 解析并验证 JWT Token
@@ -53,7 +74,7 @@ func ParseToken(tokenString string) (*Claims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(JWTSecret), nil
+		return []byte(getJWTSecret()), nil
 	})
 
 	if err != nil {
@@ -79,7 +100,7 @@ func Login(c *gin.Context) {
 	}
 
 	// 验证凭据
-	if req.Username == DefaultAdminUser && req.Password == DefaultAdminPassword {
+	if req.Username == getAdminUser() && req.Password == getAdminPassword() {
 		// 生成 JWT
 		tokenString, err := GenerateToken(req.Username)
 		if err != nil {

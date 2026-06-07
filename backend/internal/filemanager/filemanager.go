@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -131,7 +132,9 @@ func SaveFile(filename string, content string) error {
 		return err
 	}
 
-	if !strings.HasPrefix(content, "---") {
+	// 用正则检测 YAML frontmatter 开头 (^---\s*\n)，避免误判代码块中的 ---
+	hasFrontmatter := regexp.MustCompile(`^---\s*\n`).MatchString(content)
+	if !hasFrontmatter {
 		baseName := filepath.Base(fullPath)
 		title := strings.TrimSuffix(strings.TrimSuffix(baseName, ".md"), ".markdown")
 		frontmatter := fmt.Sprintf("---\ntitle: %s\n---\n\n# %s\n\n", title, title)
@@ -164,55 +167,6 @@ func DeleteFile(filename string) error {
 
 	log.Printf("删除文件: %s", fullPath)
 	return os.Remove(fullPath)
-}
-
-// UpdateSidebarConfig 更新侧边栏配置
-func UpdateSidebarConfig() error {
-	files, err := GetAllFiles()
-	if err != nil {
-		return err
-	}
-
-	var sidebarItems strings.Builder
-	for _, file := range files {
-		parts := strings.SplitN(file, "/", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		category, relPath := parts[0], parts[1]
-		title := strings.TrimSuffix(strings.TrimSuffix(relPath, ".md"), ".markdown")
-		line := fmt.Sprintf("          { text: '%s', link: '/%s/%s' },\n", title, category, title)
-		sidebarItems.WriteString(line)
-	}
-
-	configPath := filepath.Join(FrontendDir, "docs", ".vitepress", "config.mts")
-	contentBytes, err := os.ReadFile(configPath)
-	if err != nil {
-		return err
-	}
-	content := string(contentBytes)
-
-	startMarker := "text: '目录',"
-	if !strings.Contains(content, startMarker) {
-		return fmt.Errorf("配置文件中未找到锚点")
-	}
-
-	sIdx := strings.Index(content, startMarker)
-	subStr := content[sIdx:]
-	itemsStart := strings.Index(subStr, "items: [")
-	if itemsStart == -1 {
-		return fmt.Errorf("锚点后未找到 items 定义")
-	}
-
-	realStart := sIdx + itemsStart + len("items: [")
-	endIndex := strings.Index(content[realStart:], "]")
-	if endIndex == -1 {
-		return fmt.Errorf("未找到闭合的 ]")
-	}
-	endIndex += realStart
-
-	newContent := content[:realStart] + "\n" + sidebarItems.String() + "        " + content[endIndex:]
-	return os.WriteFile(configPath, []byte(newContent), 0644)
 }
 
 // BuildSite 构建站点
