@@ -8,9 +8,9 @@
 #   2. 更新部署：git pull 后执行
 #
 # 使用方法：
-#   首次部署: sudo bash deploy.sh
-#   更新代码: sudo bash deploy.sh --update
-#   仅重启:   sudo bash deploy.sh --restart
+#   首次部署: sudo bash deploy/deploy.sh
+#   更新代码: sudo bash deploy/deploy.sh --update
+#   仅重启:   sudo bash deploy/deploy.sh --restart
 #
 # ============================================
 
@@ -20,7 +20,7 @@ set -uo pipefail
 # 配置区域
 # ============================================
 DOMAIN="www.stoneyu.fun"
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NGINX_CONF_NAME="www.stoneyu.fun"
 CERTBOT_WEBROOT="/var/www/certbot"
 
@@ -53,7 +53,7 @@ check_prerequisites() {
 
     # 检查 root 权限
     if [ "$EUID" -ne 0 ]; then
-        error "请使用 sudo 运行此脚本: sudo bash deploy.sh"
+        error "请使用 sudo 运行此脚本: sudo bash deploy/deploy.sh"
     fi
 
     # 检查 Docker
@@ -139,7 +139,7 @@ setup_env() {
 setup_nginx() {
     info "部署宿主机 Nginx 配置..."
 
-    local nginx_src="$PROJECT_DIR/ssl/nginx-host.conf"
+    local nginx_src="$PROJECT_DIR/deploy/nginx-host.conf"
     local nginx_available="/etc/nginx/sites-available/$NGINX_CONF_NAME"
     local nginx_enabled="/etc/nginx/sites-enabled/$NGINX_CONF_NAME"
 
@@ -208,19 +208,19 @@ setup_ssl() {
         warn "请确保域名 DNS 已正确指向此服务器"
         echo ""
 
-        # 使用 nginx 插件申请证书
-        if certbot --nginx \
+        # 使用 webroot 方式申请证书（不修改 Nginx 配置，与手动维护的配置解耦）
+        if certbot certonly --webroot \
+            -w "$CERTBOT_WEBROOT" \
             -d "$DOMAIN" \
             --non-interactive \
             --agree-tos \
-            --email "2065802923@qq.com" \
-            --redirect; then
+            --email "2065802923@qq.com"; then
 
             success "SSL 证书申请成功！"
 
             # 证书申请成功后，部署完整的 SSL Nginx 配置
             info "部署完整 SSL Nginx 配置..."
-            cp "$PROJECT_DIR/ssl/nginx-host.conf" "/etc/nginx/sites-available/$NGINX_CONF_NAME"
+            cp "$PROJECT_DIR/deploy/nginx-host.conf" "/etc/nginx/sites-available/$NGINX_CONF_NAME"
             nginx -t && systemctl reload nginx
             success "完整 SSL 配置已部署"
         else
@@ -249,9 +249,9 @@ setup_auto_renew() {
     fi
 
     # 运行自动续签配置脚本
-    if [ -f "$PROJECT_DIR/ssl/setup-auto-renew.sh" ]; then
-        chmod +x "$PROJECT_DIR/ssl/setup-auto-renew.sh"
-        bash "$PROJECT_DIR/ssl/setup-auto-renew.sh"
+    if [ -f "$PROJECT_DIR/deploy/setup-auto-renew.sh" ]; then
+        chmod +x "$PROJECT_DIR/deploy/setup-auto-renew.sh"
+        bash "$PROJECT_DIR/deploy/setup-auto-renew.sh"
     else
         # 后备方案：直接配置 crontab
         local cron_job='30 3 * * * /usr/bin/certbot renew --quiet --deploy-hook "systemctl reload nginx" >> /var/log/certbot-renew.log 2>&1'
@@ -330,7 +330,7 @@ print_result() {
     echo "    查看日志:    cd $PROJECT_DIR && $COMPOSE_CMD logs -f"
     echo "    重启服务:    cd $PROJECT_DIR && $COMPOSE_CMD restart"
     echo "    停止服务:    cd $PROJECT_DIR && $COMPOSE_CMD down"
-    echo "    更新部署:    cd $PROJECT_DIR && git pull && sudo bash deploy.sh --update"
+    echo "    更新部署:    cd $PROJECT_DIR && git pull && sudo bash deploy/deploy.sh --update"
     echo "    证书状态:    sudo certbot certificates"
     echo ""
 }

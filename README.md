@@ -22,7 +22,7 @@ cp .env.example .env
 nano .env  # 修改数据库密码
 
 # 3. 一键部署（包括 Docker 构建、Nginx SSL 配置、证书申请、自动续签）
-sudo bash deploy.sh
+sudo bash deploy/deploy.sh
 ```
 
 部署完成后访问：
@@ -34,14 +34,14 @@ sudo bash deploy.sh
 ```bash
 cd ~/MBlog
 git pull
-sudo bash deploy.sh --update
+sudo bash deploy/deploy.sh --update
 ```
 
 ### 仅重启服务
 
 ```bash
 cd ~/MBlog
-sudo bash deploy.sh --restart
+sudo bash deploy/deploy.sh --restart
 ```
 
 ## 技术栈
@@ -68,11 +68,11 @@ MBlog/
 ├── frontend/           # VitePress 前端
 │   ├── docs/           # 博客内容与配置
 │   └── nginx/          # 容器内 Nginx 配置
-├── ssl/                # SSL 相关配置
+├── deploy/             # 部署相关文件
+│   ├── deploy.sh           # 一键部署脚本
 │   ├── nginx-host.conf     # 宿主机 Nginx SSL 配置
-│   ├── renew-cert.sh       # 手动续签脚本
-│   └── setup-auto-renew.sh # 自动续签配置脚本
-├── deploy.sh           # 一键部署脚本
+│   ├── renew-cert.sh       # 证书续签脚本
+│   └── setup-auto-renew.sh # 自动续签配置
 ├── docker-compose.yml  # Docker 编排
 ├── .env.example        # 环境变量模板
 └── README.md
@@ -96,9 +96,9 @@ Docker: PostgreSQL
 
 ```bash
 # 部署相关
-sudo bash deploy.sh              # 首次完整部署
-sudo bash deploy.sh --update     # 更新代码后重新构建
-sudo bash deploy.sh --restart    # 仅重启服务
+sudo bash deploy/deploy.sh              # 首次完整部署
+sudo bash deploy/deploy.sh --update     # 更新代码后重新构建
+sudo bash deploy/deploy.sh --restart    # 仅重启服务
 
 # Docker 相关
 docker compose logs -f           # 查看日志
@@ -116,7 +116,7 @@ sudo systemctl status certbot-renew.timer  # 查看自动续签状态
 
 1. 复制 `.env.example` 为 `.env`
 2. 修改数据库密码和端口
-3. 运行 `sudo bash deploy.sh` 完成全部配置
+3. 运行 `sudo bash deploy/deploy.sh` 完成全部配置
 
 ## License
 
