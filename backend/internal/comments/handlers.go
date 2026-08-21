@@ -1,168 +1,179 @@
 package comments
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"net/http"
-	"net/url"
+	"net/mail"
 	"strconv"
 	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"blog/internal/middleware"
+	"blog/internal/repository"
 
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterHandlers 注册评论系统相关的路由处理函数
-func (cs *CommentService) RegisterHandlers(r *gin.Engine) {
-	// 创建评论
-	r.POST("/api/comments", cs.handleAddComment)
+const (
+	maxCommentBodyBytes = 32 * 1024
+	maxArticleIDLength  = 200
+	maxNicknameLength   = 100
+	maxEmailLength      = 100
+	maxContentLength    = 2000
+)
 
-	// 获取文章评论
+func (cs *CommentService) RegisterHandlers(r *gin.Engine) {
+	r.POST("/api/comments", middleware.RateLimit(6, time.Minute), cs.handleAddComment)
 	r.GET("/api/comments/:articleId", cs.handleGetCommentsByArticle)
 
-	// 管理API（需要登录）
 	admin := r.Group("/api/admin/comments", middleware.RequireAuth())
+	admin.Use(middleware.NoStore())
 	{
+		admin.GET("", cs.handleListComments)
 		admin.DELETE("/:id", cs.handleDeleteComment)
 		admin.PUT("/:id/status", cs.handleUpdateCommentStatus)
 	}
 }
 
 func (cs *CommentService) handleAddComment(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxCommentBodyBytes)
 	var req CommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("绑定评论请求失败: %v", err)
-
-		// 提供详细的字段验证错误
-		errorMsg := "请求参数错误"
-		var missingFields []string
-
-		if req.ArticleID == "" {
-			missingFields = append(missingFields, "article_id")
-		}
-		if req.Nickname == "" {
-			missingFields = append(missingFields, "nickname")
-		}
-		if req.Content == "" {
-			missingFields = append(missingFields, "content")
-		}
-
-		if len(missingFields) > 0 {
-			errorMsg = fmt.Sprintf("缺少必填字段: %s", strings.Join(missingFields, ", "))
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   errorMsg,
-			"details": err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请完整填写昵称和评论内容"})
 		return
 	}
 
-	// 记录文章ID，便于调试中文问题
-	log.Printf("收到评论请求，文章ID: %s", req.ArticleID)
+	req.ArticleID = strings.TrimSpace(req.ArticleID)
+	req.Nickname = strings.TrimSpace(req.Nickname)
+	req.Email = strings.TrimSpace(req.Email)
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Website != "" {
+		// 对自动填写隐藏字段的请求返回普通成功，避免暴露反垃圾规则。
+		c.JSON(http.StatusCreated, gin.H{"message": "评论已提交审核"})
+		return
+	}
+	if err := validateCommentRequest(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	// 创建评论对象
 	comment := &Comment{
 		ArticleID: req.ArticleID,
 		Nickname:  req.Nickname,
 		Email:     req.Email,
 		Content:   req.Content,
-		Status:    "approved", // 默认状态为已批准
+		Status:    "pending",
 		ReplyTo:   req.ReplyTo,
 		IPAddress: c.ClientIP(),
-		UserAgent: c.Request.UserAgent(),
+		UserAgent: truncateRunes(c.Request.UserAgent(), 512),
 	}
 
-	// 添加评论
 	id, err := cs.AddComment(comment)
 	if err != nil {
+		if errors.Is(err, ErrInvalidReply) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		log.Printf("添加评论失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论保存失败"})
 		return
 	}
 
-	// 返回成功响应
 	c.JSON(http.StatusCreated, gin.H{
 		"id":      id,
-		"message": "评论已成功添加",
+		"status":  "pending",
+		"message": "评论已提交审核",
 	})
 }
 
-// handleGetCommentsByArticle 处理获取文章评论的请求
 func (cs *CommentService) handleGetCommentsByArticle(c *gin.Context) {
-	// 获取并处理articleId参数
-	articleID := c.Param("articleId")
-	if articleID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "文章ID不能为空"})
+	articleID := strings.TrimSpace(c.Param("articleId"))
+	if articleID == "" || utf8.RuneCountInString(articleID) > maxArticleIDLength || hasInvalidControl(articleID, false) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "文章标识无效"})
 		return
 	}
 
-	// 添加请求URL日志
-	log.Printf("评论请求URL: %s, 参数: %+v", c.Request.URL.String(), c.Request.URL.Query())
-
-	// 尝试解码URL编码的articleID
-	decodedID, err := url.QueryUnescape(articleID)
-	if err == nil && decodedID != articleID {
-		articleID = decodedID
-		log.Printf("文章ID已解码: %s", articleID)
-	}
-
-	// 记录所有转换前后的值，帮助调试
-	log.Printf("文章ID处理过程: 原始=%s, 解码后=%s", c.Param("articleId"), articleID)
-
-	// 清理articleID，确保不包含非法字符
-	// 这一步可能在前端已经做了，但为了安全起见再做一次
-	cleanID := strings.TrimSpace(articleID)
-	if cleanID != articleID {
-		log.Printf("文章ID已清理: %s -> %s", articleID, cleanID)
-		articleID = cleanID
-	}
-
-	log.Printf("最终使用的文章ID: %s", articleID)
-	log.Printf("查询SQL将使用: SELECT * FROM comments WHERE article_id = '%s' AND status = 'approved'", articleID)
-
-	// 获取评论
 	comments, err := cs.GetCommentsByArticle(articleID)
 	if err != nil {
-		log.Printf("获取评论失败: %v, SQL参数: articleID=%s", err, articleID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取评论失败"})
+		log.Printf("获取评论失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论读取失败"})
+		return
+	}
+	c.JSON(http.StatusOK, cs.BuildCommentTree(comments))
+}
+
+func (cs *CommentService) handleListComments(c *gin.Context) {
+	status := strings.ToLower(strings.TrimSpace(c.DefaultQuery("status", "pending")))
+	if status == "all" {
+		status = ""
+	}
+	if status != "" && status != "pending" && status != "approved" && status != "rejected" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "评论状态筛选无效"})
 		return
 	}
 
-	log.Printf("成功获取评论，文章ID: %s，评论数量: %d", articleID, len(comments))
+	page := parsePositiveInt(c.Query("page"), 1)
+	pageSize := parsePositiveInt(c.Query("page_size"), 20)
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	articleID := truncateRunes(strings.TrimSpace(c.Query("article_id")), maxArticleIDLength)
+	query := truncateRunes(strings.TrimSpace(c.Query("query")), 100)
 
-	// 构建评论树
-	commentTree := cs.BuildCommentTree(comments)
+	items, total, err := cs.ListComments(repository.CommentFilter{
+		Status:    status,
+		ArticleID: articleID,
+		Query:     query,
+		Limit:     pageSize,
+		Offset:    (page - 1) * pageSize,
+	})
+	if err != nil {
+		log.Printf("读取评论管理列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论列表读取失败"})
+		return
+	}
+	counts, err := cs.CountByStatus()
+	if err != nil {
+		log.Printf("读取评论状态统计失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论状态统计失败"})
+		return
+	}
 
-	// 返回评论树
-	c.JSON(http.StatusOK, commentTree)
+	c.JSON(http.StatusOK, gin.H{
+		"items":         items,
+		"total":         total,
+		"page":          page,
+		"page_size":     pageSize,
+		"status_counts": counts,
+	})
 }
 
-// handleDeleteComment 处理删除评论的请求
 func (cs *CommentService) handleDeleteComment(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的评论ID"})
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "评论 ID 无效"})
 		return
 	}
 
 	if err := cs.DeleteComment(id); err != nil {
+		if errors.Is(err, repository.ErrCommentNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "评论不存在"})
+			return
+		}
 		log.Printf("删除评论失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除评论失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论删除失败"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "评论已成功删除"})
+	c.JSON(http.StatusOK, gin.H{"message": "评论已删除"})
 }
 
-// handleUpdateCommentStatus 处理更新评论状态的请求
 func (cs *CommentService) handleUpdateCommentStatus(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的评论ID"})
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "评论 ID 无效"})
 		return
 	}
 
@@ -170,22 +181,81 @@ func (cs *CommentService) handleUpdateCommentStatus(c *gin.Context) {
 		Status string `json:"status" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数错误"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请选择评论状态"})
 		return
 	}
-
-	// 验证状态值
-	status := strings.ToLower(req.Status)
+	status := strings.ToLower(strings.TrimSpace(req.Status))
 	if status != "approved" && status != "pending" && status != "rejected" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的状态值"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "评论状态无效"})
 		return
 	}
 
 	if err := cs.UpdateCommentStatus(id, status); err != nil {
+		if errors.Is(err, repository.ErrCommentNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "评论不存在"})
+			return
+		}
 		log.Printf("更新评论状态失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新评论状态失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论状态更新失败"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "评论状态已更新"})
+}
+
+func validateCommentRequest(req CommentRequest) error {
+	if req.ArticleID == "" || utf8.RuneCountInString(req.ArticleID) > maxArticleIDLength {
+		return errors.New("文章标识无效")
+	}
+	if req.Nickname == "" || utf8.RuneCountInString(req.Nickname) > maxNicknameLength {
+		return errors.New("昵称应为 1 到 100 个字符")
+	}
+	contentLength := utf8.RuneCountInString(req.Content)
+	if contentLength < 2 || contentLength > maxContentLength {
+		return errors.New("评论内容应为 2 到 2000 个字符")
+	}
+	if utf8.RuneCountInString(req.Email) > maxEmailLength {
+		return errors.New("邮箱地址过长")
+	}
+	if req.Email != "" {
+		address, err := mail.ParseAddress(req.Email)
+		if err != nil || !strings.EqualFold(address.Address, req.Email) {
+			return errors.New("邮箱格式不正确")
+		}
+	}
+	if req.ReplyTo != nil && *req.ReplyTo <= 0 {
+		return errors.New("回复目标无效")
+	}
+	if hasInvalidControl(req.ArticleID, false) || hasInvalidControl(req.Nickname, false) ||
+		hasInvalidControl(req.Email, false) || hasInvalidControl(req.Content, true) {
+		return errors.New("评论包含不支持的控制字符")
+	}
+	return nil
+}
+
+func hasInvalidControl(value string, allowFormatting bool) bool {
+	for _, char := range value {
+		if !unicode.IsControl(char) {
+			continue
+		}
+		if allowFormatting && (char == '\n' || char == '\r' || char == '\t') {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func truncateRunes(value string, limit int) string {
+	if utf8.RuneCountInString(value) <= limit {
+		return value
+	}
+	return string([]rune(value)[:limit])
+}
+
+func parsePositiveInt(value string, fallback int) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return fallback
+	}
+	return parsed
 }

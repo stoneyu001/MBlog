@@ -8,32 +8,33 @@ func extractPlatformFromUA(ua string) (platform, browser string) {
 
 	// 检测操作系统
 	switch {
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod") ||
+		(strings.Contains(ua, "macintosh") && strings.Contains(ua, "mobile")):
+		platform = "iOS"
+	case strings.Contains(ua, "android"):
+		platform = "Android"
 	case strings.Contains(ua, "windows"):
 		platform = "Windows"
 	case strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os x"):
 		platform = "macOS"
 	case strings.Contains(ua, "linux"):
 		platform = "Linux"
-	case strings.Contains(ua, "android"):
-		platform = "Android"
-	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod"):
-		platform = "iOS"
 	default:
 		platform = "Unknown"
 	}
 
 	// 检测浏览器（按优先级排序）
 	switch {
-	case strings.Contains(ua, "edg/") || strings.Contains(ua, "edge/"):
+	case strings.Contains(ua, "edg/") || strings.Contains(ua, "edge/") || strings.Contains(ua, "edgios/"):
 		browser = "Edge"
-	case strings.Contains(ua, "chrome/") && !strings.Contains(ua, "edg/") && !strings.Contains(ua, "edge/"):
+	case strings.Contains(ua, "opera") || strings.Contains(ua, "opr/") || strings.Contains(ua, "opios/"):
+		browser = "Opera"
+	case strings.Contains(ua, "chrome/") || strings.Contains(ua, "crios/"):
 		browser = "Chrome"
-	case strings.Contains(ua, "firefox/"):
+	case strings.Contains(ua, "firefox/") || strings.Contains(ua, "fxios/"):
 		browser = "Firefox"
 	case strings.Contains(ua, "safari/") && !strings.Contains(ua, "chrome/"):
 		browser = "Safari"
-	case strings.Contains(ua, "opera") || strings.Contains(ua, "opr/"):
-		browser = "Opera"
 	default:
 		browser = "Unknown"
 	}

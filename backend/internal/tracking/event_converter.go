@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
-	"math"
 	"net/url"
 	"strings"
 	"time"
@@ -18,11 +17,13 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 	var eventTime time.Time
 	if req.Timestamp > 0 {
 		clientTime := time.UnixMilli(req.Timestamp).In(chinaLocation)
-		minTime := time.Now().Add(-24 * time.Hour)
-		if clientTime.After(minTime) {
+		now := time.Now().In(chinaLocation)
+		minTime := now.Add(-24 * time.Hour)
+		maxTime := now.Add(5 * time.Minute)
+		if !clientTime.Before(minTime) && !clientTime.After(maxTime) {
 			eventTime = clientTime
 		} else {
-			eventTime = time.Now().In(chinaLocation)
+			eventTime = now
 		}
 	} else {
 		eventTime = time.Now().In(chinaLocation)
@@ -64,20 +65,13 @@ func convertToUnpartitionedTrackEvent(req UnpartitionedTrackEventRequest, c *gin
 		req.Metadata["user_agent"] = c.Request.UserAgent()
 	}
 
-	// 计算 event_duration：两次事件间的时间差
-	if req.EventDuration <= 0 {
-		lastEvent, exists := getLastEventInfo(req.SessionID)
-		if exists && req.Timestamp > lastEvent.Timestamp {
-			durationMs := req.Timestamp - lastEvent.Timestamp
-			req.EventDuration = int(math.Min(float64(durationMs)/1000.0, 3600.0))
-		}
+	// 停留时长只接受客户端 PAGE_LEAVE 事件的明确值，避免用相邻点击事件错误推算。
+	if req.EventDuration < 0 {
+		req.EventDuration = 0
 	}
-
-	updateLastEventInfo(req.SessionID, LastEventInfo{
-		Timestamp: req.Timestamp,
-		EventType: req.EventType,
-		SessionID: req.SessionID,
-	})
+	if req.EventDuration > 3600 {
+		req.EventDuration = 3600
+	}
 
 	// URL 字段解码
 	pagePath := decodeURLField(req.PagePath, "/")
@@ -142,7 +136,7 @@ func decodeURLField(raw string, defaultVal string) string {
 	if raw == "" {
 		return defaultVal
 	}
-	decoded, err := url.QueryUnescape(raw)
+	decoded, err := url.PathUnescape(raw)
 	if err != nil {
 		return raw
 	}
@@ -158,7 +152,7 @@ func decodeMapURLs(m map[string]interface{}) map[string]interface{} {
 				strings.Contains(lowerKey, "path") ||
 				strings.Contains(lowerKey, "link") ||
 				strings.Contains(lowerKey, "href") {
-				if decoded, err := url.QueryUnescape(strValue); err == nil {
+				if decoded, err := url.PathUnescape(strValue); err == nil {
 					m[key] = decoded
 				}
 			}

@@ -20,7 +20,7 @@ type UnpartitionedTrackEvent struct {
 	CustomProperties string    `json:"custom_properties"` // JSON格式的自定义属性
 	Platform         string    `json:"platform"`          // 平台：WEB, IOS, ANDROID等
 	DeviceInfo       string    `json:"device_info"`       // JSON格式的设备信息
-	EventDuration    int       `json:"event_duration"`    // 事件持续时间(毫秒)
+	EventDuration    int       `json:"event_duration"`    // 页面停留时间（秒，仅 PAGE_LEAVE）
 	DeviceID         string    `json:"device_id"`         // 设备ID（与数据库表对齐）
 	Version          string    `json:"version"`           // 应用版本（与数据库表对齐）
 	DeviceType       string    `json:"device_type"`       // 设备类型：Desktop, Mobile, Tablet

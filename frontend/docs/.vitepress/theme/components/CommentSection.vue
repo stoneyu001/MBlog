@@ -1,600 +1,812 @@
 <template>
-  <div class="comment-section">
-    <h2 class="comment-title">评论</h2>
-    
-    <!-- 评论表单 -->
-    <div class="comment-form">
-      <h3>发表评论</h3>
-      <div class="form-group">
-        <label for="nickname">昵称 <span class="required">*</span></label>
-        <input 
-          type="text" 
-          id="nickname" 
-          v-model="formData.nickname" 
-          placeholder="请输入您的昵称" 
-          required
-        />
+  <section v-if="shouldShow" class="comment-section" aria-labelledby="comment-heading">
+    <header class="comment-heading">
+      <div>
+        <p class="comment-kicker">DISCUSSION</p>
+        <h2 id="comment-heading">评论与交流</h2>
       </div>
-      
-      <div class="form-group">
-        <label for="email">邮箱</label>
-        <input 
-          type="email" 
-          id="email" 
-          v-model="formData.email" 
-          placeholder="选填不公开"
-        />
+      <span v-if="!loading" class="comment-count">{{ totalComments }} 条</span>
+    </header>
+
+    <form class="comment-form" @submit.prevent="submitComment">
+      <div class="comment-form__intro">
+        <div>
+          <h3>留下你的想法</h3>
+          <p>昵称会被记住，邮箱仅用于本次提交且不会公开。</p>
+        </div>
+        <span>审核后显示</span>
       </div>
-      
-      <div class="form-group">
-        <label for="content">评论内容 <span class="required">*</span></label>
-        <textarea 
-          id="content" 
-          v-model="formData.content" 
-          placeholder="请输入评论内容" 
-          rows="4" 
-          required
-        ></textarea>
-      </div>
-      
-      <button 
-        class="submit-btn" 
-        @click="submitComment" 
-        :disabled="isSubmitting"
-      >
-        {{ isSubmitting ? '提交中...' : '提交评论' }}
-      </button>
-      
-      <div v-if="submitError" class="error-message">
-        {{ submitError }}
-      </div>
-      <div v-if="submitSuccess" class="success-message">
-        评论提交成功！
-      </div>
-    </div>
-    
-    <!-- 评论列表 -->
-    <div class="comments-list">
-      <h3>全部评论 ({{ comments.length }})</h3>
-      
-      <div v-if="loading" class="loading">
-        正在加载评论...
-      </div>
-      
-      <div v-else-if="loadError" class="error-message">
-        {{ loadError }}
-      </div>
-      
-      <div v-else-if="comments.length === 0" class="no-comments">
-        暂无评论，快来发表第一条吧！
-      </div>
-      
-      <div v-else>
-        <div v-for="comment in comments" :key="comment.id" class="comment-item">
-          <div class="comment-header">
-            <strong class="comment-author">{{ comment.nickname }}</strong>
-            <span class="comment-date">{{ formatDate(comment.created_at) }}</span>
-          </div>
-          
-          <div class="comment-content">
-            {{ comment.content }}
-          </div>
-          
-          <div class="comment-actions">
-            <button class="reply-btn" @click="replyTo(comment)">回复</button>
-          </div>
-          
-          <!-- 回复评论 -->
-          <div v-if="comment.replies && comment.replies.length > 0" class="replies">
-            <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
-              <div class="comment-header">
-                <strong class="comment-author">{{ reply.nickname }}</strong>
-                <span class="comment-date">{{ formatDate(reply.created_at) }}</span>
-              </div>
-              
-              <div class="comment-content">
-                {{ reply.content }}
-              </div>
-            </div>
-          </div>
-          
-          <!-- 回复表单 -->
-          <div v-if="replyingTo === comment.id" class="reply-form">
-            <div class="form-group">
-              <label for="reply-nickname">昵称 <span class="required">*</span></label>
-              <input 
-                type="text" 
-                id="reply-nickname" 
-                v-model="replyForm.nickname" 
-                placeholder="请输入您的昵称" 
-                required
-              />
-            </div>
-            
-            <div class="form-group">
-              <label for="reply-email">邮箱</label>
-              <input 
-                type="email" 
-                id="reply-email" 
-                v-model="replyForm.email" 
-                placeholder="选填不公开"
-              />
-            </div>
-            
-            <div class="form-group">
-              <label for="reply-content">回复内容 <span class="required">*</span></label>
-              <textarea 
-                id="reply-content" 
-                v-model="replyForm.content" 
-                placeholder="请输入回复内容" 
-                rows="3" 
-                required
-              ></textarea>
-            </div>
-            
-            <div class="reply-actions">
-              <button 
-                class="submit-btn" 
-                @click="submitReply" 
-                :disabled="isSubmitting"
-              >
-                {{ isSubmitting ? '提交中...' : '提交回复' }}
-              </button>
-              <button class="cancel-btn" @click="cancelReply">取消</button>
-            </div>
-          </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="comment-nickname">昵称 <span aria-hidden="true">*</span></label>
+          <input
+            id="comment-nickname"
+            v-model="formData.nickname"
+            name="nickname"
+            type="text"
+            autocomplete="nickname"
+            maxlength="100"
+            required
+            placeholder="怎么称呼你"
+          />
+        </div>
+        <div class="form-group">
+          <label for="comment-email">邮箱 <small>选填，不公开</small></label>
+          <input
+            id="comment-email"
+            v-model="formData.email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            maxlength="100"
+            placeholder="name@example.com"
+          />
         </div>
       </div>
+
+      <div class="form-group">
+        <div class="form-label-row">
+          <label for="comment-content">评论内容 <span aria-hidden="true">*</span></label>
+          <span>{{ formData.content.length }}/2000</span>
+        </div>
+        <textarea
+          id="comment-content"
+          v-model="formData.content"
+          name="content"
+          rows="5"
+          minlength="2"
+          maxlength="2000"
+          required
+          placeholder="围绕文章内容展开交流，会更容易得到回应。"
+        ></textarea>
+      </div>
+
+      <input v-model="formData.website" class="comment-honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+      <div class="form-actions">
+        <button class="comment-button comment-button--primary" type="submit" :disabled="mainSubmitting">
+          {{ mainSubmitting ? '正在提交…' : '提交评论' }}
+        </button>
+        <p v-if="mainError" class="form-message form-message--error" role="alert">{{ mainError }}</p>
+        <p v-else-if="mainSuccess" class="form-message form-message--success" role="status">{{ mainSuccess }}</p>
+      </div>
+    </form>
+
+    <div class="comments-list" :aria-busy="loading">
+      <div class="comments-list__title">
+        <h3>全部评论</h3>
+        <button v-if="loadError" class="text-button" type="button" @click="loadComments">重新加载</button>
+      </div>
+
+      <div v-if="loading" class="comment-state" role="status">
+        <span class="loading-dot" aria-hidden="true"></span>
+        正在读取评论
+      </div>
+      <div v-else-if="loadError" class="comment-state comment-state--error" role="alert">
+        {{ loadError }}
+      </div>
+      <div v-else-if="comments.length === 0" class="comment-state">
+        暂无已公开评论。你可以成为第一位留言者。
+      </div>
+
+      <ol v-else class="comment-thread">
+        <li v-for="comment in comments" :key="comment.id" class="comment-item">
+          <article>
+            <header class="comment-item__header">
+              <div class="comment-author">
+                <span class="comment-avatar" aria-hidden="true">{{ avatarText(comment.nickname) }}</span>
+                <div>
+                  <strong>{{ comment.nickname }}</strong>
+                  <time :datetime="comment.created_at">{{ formatDate(comment.created_at) }}</time>
+                </div>
+              </div>
+              <button class="text-button" type="button" @click="replyTo(comment)">回复</button>
+            </header>
+            <p class="comment-content">{{ comment.content }}</p>
+          </article>
+
+          <ol v-if="comment.replies?.length" class="reply-list">
+            <li v-for="reply in comment.replies" :key="reply.id" class="reply-item">
+              <header class="comment-item__header">
+                <div class="comment-author">
+                  <span class="comment-avatar comment-avatar--reply" aria-hidden="true">{{ avatarText(reply.nickname) }}</span>
+                  <div>
+                    <strong>{{ reply.nickname }}</strong>
+                    <time :datetime="reply.created_at">{{ formatDate(reply.created_at) }}</time>
+                  </div>
+                </div>
+              </header>
+              <p class="comment-content">{{ reply.content }}</p>
+            </li>
+          </ol>
+
+          <form v-if="replyingTo === comment.id" class="reply-form" @submit.prevent="submitReply(comment.id)">
+            <div class="reply-form__heading">
+              <strong>回复 {{ comment.nickname }}</strong>
+              <button class="text-button" type="button" @click="cancelReply">取消</button>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label :for="`reply-nickname-${comment.id}`">昵称 <span aria-hidden="true">*</span></label>
+                <input
+                  :id="`reply-nickname-${comment.id}`"
+                  v-model="replyForm.nickname"
+                  type="text"
+                  autocomplete="nickname"
+                  maxlength="100"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label :for="`reply-email-${comment.id}`">邮箱 <small>选填</small></label>
+                <input
+                  :id="`reply-email-${comment.id}`"
+                  v-model="replyForm.email"
+                  type="email"
+                  autocomplete="email"
+                  maxlength="100"
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-label-row">
+                <label :for="`reply-content-${comment.id}`">回复内容 <span aria-hidden="true">*</span></label>
+                <span>{{ replyForm.content.length }}/2000</span>
+              </div>
+              <textarea
+                :id="`reply-content-${comment.id}`"
+                v-model="replyForm.content"
+                rows="3"
+                minlength="2"
+                maxlength="2000"
+                required
+                autofocus
+              ></textarea>
+            </div>
+            <input v-model="replyForm.website" class="comment-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <div class="form-actions">
+              <button class="comment-button comment-button--primary" type="submit" :disabled="replySubmitting">
+                {{ replySubmitting ? '正在提交…' : '提交回复' }}
+              </button>
+              <p v-if="replyError" class="form-message form-message--error" role="alert">{{ replyError }}</p>
+            </div>
+          </form>
+        </li>
+      </ol>
+
+      <p v-if="replySuccess" class="form-message form-message--success comments-notice" role="status">
+        {{ replySuccess }}
+      </p>
     </div>
-  </div>
+  </section>
 </template>
 
-<script setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute } from 'vitepress';
-import { saveCommentUser, getCommentUser } from './CommentStorage';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useData, useRoute } from 'vitepress'
+import { getCommentUser, saveCommentUser } from './CommentStorage'
 
-const route = useRoute();
+interface CommentItem {
+  id: number
+  article_id: string
+  nickname: string
+  content: string
+  created_at: string
+  reply_to?: number | null
+  replies?: CommentItem[]
+}
 
-// 使用路径作为文章ID，确保中文路径也能正确处理
+interface CommentFormData {
+  nickname: string
+  email: string
+  content: string
+  website: string
+}
+
+const route = useRoute()
+const { frontmatter } = useData()
+const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+
+const comments = ref<CommentItem[]>([])
+const loading = ref(false)
+const loadError = ref('')
+const mainSubmitting = ref(false)
+const mainError = ref('')
+const mainSuccess = ref('')
+const replySubmitting = ref(false)
+const replyError = ref('')
+const replySuccess = ref('')
+const replyingTo = ref<number | null>(null)
+let activeRequest: AbortController | null = null
+
+const emptyForm = (): CommentFormData => ({ nickname: '', email: '', content: '', website: '' })
+const formData = ref<CommentFormData>(emptyForm())
+const replyForm = ref<CommentFormData>(emptyForm())
+
+const shouldShow = computed(() => {
+  return frontmatter.value.comments !== false
+    && frontmatter.value.section !== true
+    && /^\/(life|tech)\/.+/.test(route.path)
+})
+
 const articleId = computed(() => {
-  // 移除末尾的斜杠，然后对路径进行编码转换
-  const path = decodeURIComponent(route.path.replace(/\/$/, '') || '/index');
-  
-  // 创建一个更简单的标识符，避免特殊字符和完整路径
-  // 移除所有表情符号和特殊字符，只保留基本的URL友好字符
-  const simpleId = path
-    .replace(/[^\w\u4e00-\u9fa5\-\/\.]/g, '') // 只保留字母、数字、中文、连字符、斜杠和点
-    .replace(/\/+/g, '_')                     // 将斜杠替换为下划线
-    .replace(/^_/, '')                        // 移除开头的下划线
-    .replace(/_$/, '');                       // 移除结尾的下划线
-  
-  return simpleId || 'index';
-});
+  const configuredId = typeof frontmatter.value.commentId === 'string'
+    ? frontmatter.value.commentId.trim()
+    : ''
+  if (configuredId) return Array.from(configuredId.replace(/\/+/g, '_')).slice(0, 200).join('')
 
-// API基础URL配置 - 自动检测环境
-const apiBaseUrl = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:3000'  // 开发环境
-  : '';                       // 生产环境使用相对路径
+  let path = route.path.replace(/\/$/, '') || '/index'
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    // 保留无法解码的原始路径，避免页面因此失去评论能力。
+  }
 
-const loading = ref(false);
-const loadError = ref('');
-const comments = ref([]);
-const isSubmitting = ref(false);
-const submitError = ref('');
-const submitSuccess = ref(false);
-const replyingTo = ref(null);
+  const legacyId = path
+    .replace(/[^\w\u4e00-\u9fa5\-\/.]/g, '')
+    .replace(/\/+/g, '_')
+    .replace(/^_|_$/g, '') || 'index'
+  return Array.from(legacyId).slice(0, 200).join('')
+})
 
-// 评论表单和回复表单数据
-const formData = ref({
-  nickname: '',
-  email: '',
-  content: ''
-});
+const totalComments = computed(() => comments.value.reduce(
+  (total, comment) => total + 1 + (comment.replies?.length || 0),
+  0
+))
 
-const replyForm = ref({
-  nickname: '',
-  email: '',
-  content: ''
-});
-
-// 加载用户信息从本地存储
 function loadUserInfo() {
-  const savedUser = getCommentUser();
-  if (savedUser) {
-    formData.value.nickname = savedUser.nickname || '';
-    formData.value.email = savedUser.email || '';
+  const savedUser = getCommentUser()
+  if (savedUser?.nickname) {
+    formData.value.nickname = savedUser.nickname
   }
 }
 
-// 保存用户信息到本地存储
-function saveUserInfo() {
-  if (formData.value.nickname) {
-    saveCommentUser({
-      nickname: formData.value.nickname,
-      email: formData.value.email
-    });
+function saveUserInfo(nickname: string) {
+  saveCommentUser({ nickname: nickname.trim() })
+}
+
+async function readError(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = await response.json()
+    return typeof body?.error === 'string' ? body.error : fallback
+  } catch {
+    return fallback
   }
 }
 
-// 加载评论
 async function loadComments() {
-  loading.value = true;
-  loadError.value = '';
-  
+  activeRequest?.abort()
+  activeRequest = null
+  if (!shouldShow.value) {
+    comments.value = []
+    return
+  }
+
+  const request = new AbortController()
+  activeRequest = request
+  loading.value = true
+  loadError.value = ''
+
   try {
-    const encodedId = encodeURIComponent(articleId.value);
-    const response = await fetch(`${apiBaseUrl}/api/comments/${encodedId}`);
+    const response = await fetch(`${apiBaseUrl}/api/comments/${encodeURIComponent(articleId.value)}`, {
+      signal: request.signal,
+      headers: { Accept: 'application/json' }
+    })
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error('获取评论失败');
+      throw new Error(await readError(response, '评论读取失败'))
     }
-    
-    const data = await response.json();
-    // 处理null或undefined响应，转换为空数组
-    if (data === null || data === undefined) {
-      comments.value = [];
-    } else {
-      comments.value = data;
+    const data = await response.json()
+    if (!Array.isArray(data)) {
+      throw new Error('评论数据格式异常')
     }
+    comments.value = data
   } catch (error) {
-    console.error('加载评论出错详细信息:', error);
-    console.error('错误堆栈:', error.stack);
-    // 网络错误时，显示空评论列表而不是错误信息
-    if (error.message === 'Failed to fetch') {
-      comments.value = [];
-    } else {
-      loadError.value = '加载评论失败，请稍后重试';
-    }
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    comments.value = []
+    loadError.value = error instanceof Error ? error.message : '评论读取失败，请稍后重试'
   } finally {
-    loading.value = false;
+    if (activeRequest === request) {
+      activeRequest = null
+      loading.value = false
+    }
   }
 }
 
-// 提交评论
+function validateForm(data: CommentFormData, action: '评论' | '回复'): string {
+  if (!data.nickname.trim()) return '请填写昵称'
+  if (!data.content.trim()) return `请填写${action}内容`
+  if (data.content.trim().length < 2) return `${action}内容至少需要 2 个字符`
+  return ''
+}
+
 async function submitComment() {
-  if (!formData.value.nickname || !formData.value.content) {
-    submitError.value = '请填写昵称和评论内容';
-    return;
-  }
-  
-  isSubmitting.value = true;
-  submitError.value = '';
-  submitSuccess.value = false;
-  
+  mainError.value = validateForm(formData.value, '评论')
+  mainSuccess.value = ''
+  if (mainError.value) return
+
+  mainSubmitting.value = true
   try {
-    const commentData = {
-      article_id: articleId.value,
-      nickname: formData.value.nickname,
-      email: formData.value.email,
-      content: formData.value.content
-    };
-    
     const response = await fetch(`${apiBaseUrl}/api/comments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(commentData)
-    });
-    
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        article_id: articleId.value,
+        nickname: formData.value.nickname.trim(),
+        email: formData.value.email.trim(),
+        content: formData.value.content.trim(),
+        website: formData.value.website
+      })
+    })
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error('提交评论失败');
+      throw new Error(await readError(response, '评论提交失败'))
     }
-    
-    const responseData = await response.json();
-    
-    // 保存用户信息
-    saveUserInfo();
-    
-    // 清空内容留下昵称和邮箱
-    formData.value.content = '';
-    
-    submitSuccess.value = true;
-    
-    // 重新加载评论
-    await loadComments();
-    
-    // 3秒后隐藏成功提示
-    setTimeout(() => {
-      submitSuccess.value = false;
-    }, 3000);
+
+    saveUserInfo(formData.value.nickname)
+    formData.value.content = ''
+    formData.value.website = ''
+    mainSuccess.value = '评论已提交，审核通过后会显示在这里。'
   } catch (error) {
-    console.error('提交评论出错详细信息:', error);
-    console.error('错误堆栈:', error.stack);
-    submitError.value = '提交评论失败，请稍后重试';
+    mainError.value = error instanceof Error ? error.message : '评论提交失败，请稍后重试'
   } finally {
-    isSubmitting.value = false;
+    mainSubmitting.value = false
   }
 }
 
-// 回复评论
-function replyTo(comment) {
-  replyingTo.value = comment.id;
+function replyTo(comment: CommentItem) {
+  replyingTo.value = comment.id
+  replyError.value = ''
+  replySuccess.value = ''
   replyForm.value = {
     nickname: formData.value.nickname,
     email: formData.value.email,
-    content: ''
-  };
-}
-
-// 取消回复
-function cancelReply() {
-  replyingTo.value = null;
-}
-
-// 提交回复
-async function submitReply() {
-  if (!replyForm.value.nickname || !replyForm.value.content) {
-    submitError.value = '请填写昵称和回复内容';
-    return;
+    content: '',
+    website: ''
   }
-  
-  isSubmitting.value = true;
-  submitError.value = '';
-  
+}
+
+function cancelReply() {
+  replyingTo.value = null
+  replyError.value = ''
+}
+
+async function submitReply(parentId: number) {
+  replyError.value = validateForm(replyForm.value, '回复')
+  if (replyError.value) return
+
+  replySubmitting.value = true
   try {
     const response = await fetch(`${apiBaseUrl}/api/comments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         article_id: articleId.value,
-        nickname: replyForm.value.nickname,
-        email: replyForm.value.email,
-        content: replyForm.value.content,
-        reply_to: replyingTo.value
+        nickname: replyForm.value.nickname.trim(),
+        email: replyForm.value.email.trim(),
+        content: replyForm.value.content.trim(),
+        reply_to: parentId,
+        website: replyForm.value.website
       })
-    });
-    
+    })
     if (!response.ok) {
-      throw new Error('提交回复失败');
+      throw new Error(await readError(response, '回复提交失败'))
     }
-    
-    // 清除回复状态
-    replyingTo.value = null;
-    
-    // 将回复表单的昵称和邮箱同步到主表单
-    formData.value.nickname = replyForm.value.nickname;
-    formData.value.email = replyForm.value.email;
-    
-    // 保存到本地存储
-    saveUserInfo();
-    
-    // 重新加载评论
-    await loadComments();
+
+    formData.value.nickname = replyForm.value.nickname.trim()
+    formData.value.email = replyForm.value.email.trim()
+    saveUserInfo(replyForm.value.nickname)
+    replyingTo.value = null
+    replySuccess.value = '回复已提交，审核通过后会显示。'
   } catch (error) {
-    console.error('提交回复出错:', error);
-    submitError.value = '提交回复失败，请稍后重试';
+    replyError.value = error instanceof Error ? error.message : '回复提交失败，请稍后重试'
   } finally {
-    isSubmitting.value = false;
+    replySubmitting.value = false
   }
 }
 
-// 格式化日期
-function formatDate(dateStr) {
-  try {
-    // 移除末尾的Z并替换T为空格
-    const localTimeStr = dateStr.replace('Z', '').replace('T', ' ');
-    
-    // 直接从字符串中提取时间部分
-    const [datePart, timePart] = localTimeStr.split(' ');
-    const [hours, minutes] = timePart.split(':');
-    
-    // 只返回到分钟的格式
-    return `${datePart} ${hours}:${minutes}`;
-  } catch (error) {
-    console.error('格式化日期出错:', error);
-    return dateStr;
-  }
+function formatDate(dateValue: string): string {
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return dateValue
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
 }
 
-// 监听路由变化
+function avatarText(nickname: string): string {
+  return Array.from(nickname.trim())[0]?.toUpperCase() || '访'
+}
+
 watch(() => route.path, () => {
-  loadComments();
-}, { immediate: true });
+  replyingTo.value = null
+  mainError.value = ''
+  mainSuccess.value = ''
+  replyError.value = ''
+  replySuccess.value = ''
+  loadComments()
+})
 
-// 组件挂载时加载评论和用户信息
 onMounted(() => {
-  loadUserInfo();
-});
+  loadUserInfo()
+  loadComments()
+})
+
+onBeforeUnmount(() => activeRequest?.abort())
 </script>
 
 <style scoped>
 .comment-section {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--vp-c-divider);
-  max-width: 100%;
+  margin-top: 3rem;
+  padding-top: 2.25rem;
+  border-top: 1px solid var(--mblog-border-strong);
+  font-family: var(--mblog-font-sans);
 }
 
-.comment-title {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
+.comment-heading,
+.comment-form__intro,
+.comment-item__header,
+.comments-list__title,
+.reply-form__heading,
+.form-label-row,
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.comment-heading h2 {
+  margin: 0.1rem 0 0;
+  border: 0;
+  font-family: var(--mblog-font-display);
+  font-size: clamp(1.55rem, 4vw, 2rem);
+}
+
+.comment-kicker {
+  margin: 0;
+  color: var(--vp-c-brand-1);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+}
+
+.comment-count {
+  padding: 0.25rem 0.65rem;
+  color: var(--vp-c-text-2);
+  background: var(--mblog-accent-soft);
+  border-radius: 999px;
+  font-size: 0.76rem;
+}
+
+.comment-form,
+.reply-form {
+  margin-top: 1.35rem;
+  padding: clamp(1rem, 3vw, 1.45rem);
+  background: var(--mblog-paper-soft);
+  border: 1px solid var(--mblog-border);
+  border-radius: 14px;
+  box-shadow: var(--mblog-shadow-sm);
+}
+
+.comment-form__intro {
+  align-items: flex-start;
+  margin-bottom: 1.2rem;
+}
+
+.comment-form__intro h3,
+.comments-list__title h3 {
+  margin: 0;
+  border: 0;
   color: var(--vp-c-text-1);
+  font-family: var(--mblog-font-display);
+  font-size: 1.05rem;
 }
 
-.comment-form {
-  background-color: var(--vp-c-bg-soft);
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 2rem;
+.comment-form__intro p {
+  margin: 0.25rem 0 0;
+  color: var(--vp-c-text-3);
+  font-size: 0.78rem;
+}
+
+.comment-form__intro > span {
+  flex: 0 0 auto;
+  color: var(--vp-c-brand-1);
+  font-size: 0.72rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 0.95rem;
+}
+
+.form-group label,
+.form-label-row {
+  color: var(--vp-c-text-2);
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: var(--vp-c-text-1);
+  margin-bottom: 0.4rem;
 }
 
-.required {
-  color: var(--vp-c-danger);
+.form-label-row label {
+  margin: 0;
 }
 
-input, textarea {
+.form-label-row > span,
+.form-group small {
+  color: var(--vp-c-text-3);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+
+.form-group input,
+.form-group textarea {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 4px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-  background-color: var(--vp-c-bg);
+  box-sizing: border-box;
+  padding: 0.72rem 0.82rem;
   color: var(--vp-c-text-1);
+  background: var(--mblog-input-bg);
+  border: 1px solid var(--mblog-border-strong);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-input:focus, textarea:focus {
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 0 0 3px var(--mblog-focus-ring);
   outline: none;
-  border-color: var(--vp-c-brand);
 }
 
-.submit-btn, .reply-btn, .cancel-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
+.comment-honeypot {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+}
+
+.form-actions {
+  justify-content: flex-start;
+  min-height: 42px;
+}
+
+.comment-button {
+  min-height: 42px;
+  padding: 0.65rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
 }
 
-.submit-btn {
-  background-color: var(--vp-c-brand);
-  color: white;
-  border: none;
+.comment-button--primary {
+  color: #fffaf2;
+  background: var(--vp-c-brand-1);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--vp-c-brand-1) 25%, transparent);
 }
 
-.submit-btn:hover {
-  background-color: var(--vp-c-brand-dark);
+.comment-button--primary:hover:not(:disabled) {
+  background: var(--vp-c-brand-2);
 }
 
-.submit-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.comment-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
-.cancel-btn {
-  background-color: var(--vp-c-bg-soft);
-  color: var(--vp-c-text-2);
-  border: 1px solid var(--vp-c-divider);
-  margin-left: 0.5rem;
+.form-message {
+  margin: 0;
+  font-size: 0.78rem;
 }
 
-.cancel-btn:hover {
-  background-color: var(--vp-c-bg-mute);
+.form-message--error,
+.comment-state--error {
+  color: var(--vp-c-danger-1);
 }
 
-.reply-btn {
-  background: none;
-  border: none;
-  color: var(--vp-c-brand);
-  padding: 0;
-  font-size: 0.9rem;
-}
-
-.reply-btn:hover {
-  color: var(--vp-c-brand-dark);
-  text-decoration: underline;
-}
-
-.error-message {
-  color: var(--vp-c-danger);
-  margin-top: 0.5rem;
-}
-
-.success-message {
-  color: var(--vp-c-success);
-  margin-top: 0.5rem;
+.form-message--success {
+  color: var(--vp-c-success-1);
 }
 
 .comments-list {
-  margin-top: 2rem;
+  margin-top: 2.2rem;
+}
+
+.comments-list__title {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--mblog-border);
+}
+
+.text-button {
+  padding: 0.25rem 0;
+  color: var(--vp-c-brand-1);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.text-button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.comment-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 130px;
+  color: var(--vp-c-text-3);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.loading-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--vp-c-brand-1);
+  border-radius: 50%;
+  animation: comment-pulse 1.2s ease-in-out infinite;
+}
+
+.comment-thread,
+.reply-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .comment-item {
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--vp-c-divider);
-}
-
-.comment-item:last-child {
-  border-bottom: none;
-}
-
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
+  padding: 1.35rem 0;
+  border-bottom: 1px solid var(--mblog-border);
 }
 
 .comment-author {
-  color: var(--vp-c-text-1);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
-.comment-date {
+.comment-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--vp-c-brand-1);
+  background: var(--mblog-accent-soft);
+  border: 1px solid var(--mblog-border-strong);
+  border-radius: 50%;
+  font-family: var(--mblog-font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.comment-avatar--reply {
+  width: 29px;
+  height: 29px;
+  font-size: 0.75rem;
+}
+
+.comment-author strong,
+.comment-author time {
+  display: block;
+}
+
+.comment-author strong {
+  color: var(--vp-c-text-1);
+  font-size: 0.85rem;
+}
+
+.comment-author time {
+  margin-top: 0.15rem;
   color: var(--vp-c-text-3);
-  font-size: 0.9rem;
+  font-size: 0.68rem;
 }
 
 .comment-content {
-  line-height: 1.6;
-  margin-bottom: 0.5rem;
+  margin: 0.75rem 0 0 2.75rem;
+  color: var(--vp-c-text-2);
+  font-family: var(--mblog-font-display);
+  font-size: 0.95rem;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
-  color: var(--vp-c-text-1);
 }
 
-.comment-actions {
-  margin-top: 0.5rem;
-}
-
-.replies {
-  margin-left: 2rem;
-  margin-top: 1rem;
+.reply-list {
+  margin: 1rem 0 0 2.75rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--vp-c-divider);
+  border-left: 2px solid var(--mblog-border-strong);
 }
 
 .reply-item {
-  padding: 0.5rem 0;
+  padding: 0.8rem 0;
+}
+
+.reply-item + .reply-item {
+  border-top: 1px dashed var(--mblog-border);
 }
 
 .reply-form {
+  margin: 1rem 0 0 2.75rem;
+  box-shadow: none;
+}
+
+.reply-form__heading {
+  margin-bottom: 1rem;
+  color: var(--vp-c-text-1);
+  font-size: 0.82rem;
+}
+
+.comments-notice {
   margin-top: 1rem;
-  margin-left: 2rem;
-  padding: 1rem;
-  background-color: var(--vp-c-bg-soft);
-  border-radius: 4px;
 }
 
-.reply-actions {
-  display: flex;
+@keyframes comment-pulse {
+  50% { opacity: 0.35; transform: scale(0.75); }
 }
 
-.loading {
-  text-align: center;
-  color: var(--vp-c-text-3);
-  padding: 1rem 0;
-}
-
-.no-comments {
-  text-align: center;
-  color: var(--vp-c-text-3);
-  padding: 2rem 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .replies {
-    margin-left: 1rem;
-    padding-left: 0.5rem;
+@media (max-width: 640px) {
+  .comment-form__intro,
+  .form-row {
+    display: block;
   }
-  
+
+  .comment-form__intro > span {
+    display: inline-block;
+    margin-top: 0.55rem;
+  }
+
+  .comment-item__header {
+    align-items: flex-start;
+  }
+
+  .comment-content {
+    margin-left: 0;
+  }
+
+  .reply-list,
   .reply-form {
-    margin-left: 1rem;
+    margin-left: 0.6rem;
+  }
+
+  .form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .comment-button {
+    width: 100%;
   }
 }
-</style> 
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-dot {
+    animation: none;
+  }
+}
+</style>

@@ -1,10 +1,12 @@
 package tracking
 
 import (
+	"blog/internal/middleware"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +25,7 @@ type UnpartitionedTrackEventRequest struct {
 	CustomProperties map[string]interface{} `json:"custom_properties"` // 自定义属性
 	Platform         string                 `json:"platform"`          // 平台：WEB, IOS, ANDROID等
 	DeviceInfo       map[string]interface{} `json:"device_info"`       // 设备信息
-	EventDuration    int                    `json:"event_duration"`    // 事件持续时间(毫秒)
+	EventDuration    int                    `json:"event_duration"`    // 页面停留时间（秒，仅 PAGE_LEAVE）
 }
 
 // 批量不分区埋点请求
@@ -31,22 +33,52 @@ type BatchUnpartitionedTrackRequest struct {
 	Events []UnpartitionedTrackEventRequest `json:"events"`
 }
 
+var allowedTrackEventTypes = map[string]bool{
+	"PAGEVIEW":   true,
+	"PAGE_LEAVE": true,
+	"CLICK":      true,
+	"EXPOSURE":   true,
+	"CUSTOM":     true,
+}
+
+func validateTrackRequest(req *UnpartitionedTrackEventRequest) error {
+	req.EventType = strings.ToUpper(strings.TrimSpace(req.EventType))
+	req.PagePath = strings.TrimSpace(req.PagePath)
+	if !allowedTrackEventTypes[req.EventType] {
+		return fmt.Errorf("不支持的事件类型")
+	}
+	if req.PagePath == "" || len(req.PagePath) > 2048 {
+		return fmt.Errorf("页面路径为空或过长")
+	}
+	if len(req.SessionID) > 100 || len(req.UserID) > 100 {
+		return fmt.Errorf("会话或访客标识过长")
+	}
+	if len(req.ElementPath) > 4096 || len(req.Referrer) > 4096 {
+		return fmt.Errorf("事件字段过长")
+	}
+	if req.EventDuration < 0 || req.EventDuration > 3600 {
+		return fmt.Errorf("页面停留时间超出范围")
+	}
+	return nil
+}
+
 // RegisterHandlers 注册跟踪相关的API路由
 func (ts *TrackingService) RegisterHandlers(router *gin.Engine) {
 	trackGroup := router.Group("/api/tracking")
 	{
 		// 单个事件上报
-		trackGroup.POST("/event", ts.handleUnpartitionedTrackEvent)
+		trackGroup.POST("/event", middleware.RateLimit(120, time.Minute), ts.handleUnpartitionedTrackEvent)
 
 		// 批量事件上报
-		trackGroup.POST("/batch", ts.handleUnpartitionedBatchEvents)
+		trackGroup.POST("/batch", middleware.RateLimit(120, time.Minute), ts.handleUnpartitionedBatchEvents)
 
-		// 检查跟踪服务状态
-		trackGroup.GET("/status", ts.handleTrackingStatus)
+		// 服务状态包含内部事件总量，只对管理员开放。
+		trackGroup.GET("/status", middleware.RequireAuth(), middleware.NoStore(), ts.handleTrackingStatus)
 	}
 }
 
 func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024*1024)
 	var req UnpartitionedTrackEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("请求数据解析失败: %v", err)
@@ -59,20 +91,13 @@ func (ts *TrackingService) handleUnpartitionedTrackEvent(c *gin.Context) {
 			errorMsg = fmt.Sprintf("字段类型错误: %s 应该是 %s 类型", jsonErr.Field, jsonErr.Type)
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   errorMsg,
-			"details": err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errorMsg})
 		return
 	}
 
-	log.Printf("接收到埋点请求: type=%s, session=%s, user_id=%s, path=%s, timestamp=%d",
-		req.EventType, req.SessionID, req.UserID, req.PagePath, req.Timestamp)
-
-	// 验证并设置缺失字段的默认值而不是拒绝请求
-	if req.EventType == "" {
-		req.EventType = "UNKNOWN"
-		log.Printf("警告: 事件类型为空，使用默认值: %s", req.EventType)
+	if err := validateTrackRequest(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	// 创建跟踪事件
@@ -89,21 +114,18 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	// 解析原始JSON
 	var events []map[string]interface{}
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024*1024)
 	body, err := c.GetRawData()
 	if err != nil {
 		log.Printf("读取请求体失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "读取请求数据失败"})
 		return
 	}
-	log.Printf("接收到原始批量请求数据: %s", string(body))
-
 	if err := json.Unmarshal(body, &events); err != nil {
 		log.Printf("解析JSON失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
 	}
-
-	log.Printf("解析后的events数组: %+v", events)
 
 	if len(events) == 0 {
 		log.Printf("警告: 批量请求为空")
@@ -122,23 +144,7 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 	}
 
 	// 处理每个事件
-	for i, eventMap := range events {
-		// 详细记录每个事件的原始数据
-		log.Printf("事件[%d]原始数据: %+v", i, eventMap)
-
-		// 特别检查platform和event_duration字段
-		if platform, exists := eventMap["platform"]; exists {
-			log.Printf("事件[%d]包含platform: %v (类型: %T)", i, platform, platform)
-		} else {
-			log.Printf("警告: 事件[%d]不包含platform字段", i)
-		}
-
-		if duration, exists := eventMap["event_duration"]; exists {
-			log.Printf("事件[%d]包含event_duration: %v (类型: %T)", i, duration, duration)
-		} else {
-			log.Printf("警告: 事件[%d]不包含event_duration字段", i)
-		}
-
+	for _, eventMap := range events {
 		// 构建请求结构体
 		req := UnpartitionedTrackEventRequest{
 			EventType:        getStringWithFallback(eventMap, "event_type", "eventType"),
@@ -155,14 +161,13 @@ func (ts *TrackingService) handleUnpartitionedBatchEvents(c *gin.Context) {
 			DeviceInfo:       getMapWithFallback(eventMap, "device_info", "deviceInfo"),
 		}
 
-		// 打印请求内容以调试
-		log.Printf("处理事件: platform=%s, event_duration=%d, type=%s, path=%s",
-			req.Platform, req.EventDuration, req.EventType, req.PagePath)
+		if err := validateTrackRequest(&req); err != nil {
+			invalidEvents++
+			continue
+		}
 
 		// 转换为事件对象并发送
 		event := convertToUnpartitionedTrackEvent(req, c)
-		log.Printf("转换后的事件对象: platform=%s, event_duration=%d",
-			event.Platform, event.EventDuration)
 		ts.TrackUnpartitionedEvent(event)
 		validEvents++
 	}

@@ -14,7 +14,7 @@
 #
 # ============================================
 
-set -uo pipefail
+set -euo pipefail
 
 # ============================================
 # 配置区域
@@ -130,9 +130,18 @@ setup_env() {
         error ".env 中的数据库密码尚未修改，请先编辑 .env 文件"
     fi
 
-    # 验证 JWT 密钥已修改
-    if grep -q "your-secret-key-should-be-complex" "$PROJECT_DIR/.env" 2>/dev/null; then
-        error ".env 中的 JWT_SECRET 尚未修改，请先编辑 .env 文件"
+    for key in ADMIN_USER ADMIN_PASSWORD JWT_SECRET; do
+        if ! grep -Eq "^${key}=.+" "$PROJECT_DIR/.env" 2>/dev/null; then
+            error ".env 缺少 ${key}，请参考 .env.example 补充"
+        fi
+    done
+
+    if grep -Eq '^ADMIN_PASSWORD=(admin123|replace_with_a_strong_password)$' "$PROJECT_DIR/.env" 2>/dev/null; then
+        error ".env 中的 ADMIN_PASSWORD 仍是默认值或示例值"
+    fi
+
+    if grep -Eq '^JWT_SECRET=(your-secret-key-should-be-complex|replace_with_at_least_32_random_characters)$' "$PROJECT_DIR/.env" 2>/dev/null; then
+        error ".env 中的 JWT_SECRET 仍是示例值"
     fi
 
     success ".env 配置已就绪"
@@ -175,7 +184,7 @@ server {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For \$remote_addr;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
@@ -347,8 +356,8 @@ print_result() {
     echo -e "${GREEN}============================================${NC}"
     echo ""
     echo "  🌐 博客首页:   https://$DOMAIN"
-    echo "  🔧 管理后台:   https://$DOMAIN/admin"
-    echo "  🔑 默认账号:   admin / admin123"
+    echo "  📊 数据分析:   https://$DOMAIN/admin"
+    echo "  🔑 管理凭据:   使用 .env 中的 ADMIN_USER / ADMIN_PASSWORD"
     echo ""
     echo "  📋 常用命令:"
     echo "    查看日志:    cd $PROJECT_DIR && $COMPOSE_CMD logs -f"
@@ -372,6 +381,7 @@ main() {
             info "模式: 更新部署（重新构建镜像）"
             echo ""
             check_prerequisites
+            setup_env
             start_docker "build"
             setup_ssl
             print_result

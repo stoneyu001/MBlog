@@ -2,17 +2,8 @@
  * Vitepress 无感埋点插件
  */
 
-import { type Router, EnhanceAppContext, PageData } from 'vitepress'
-import { Logger } from './utils/logger'
-import { detectPlatform } from './utils/platform'
-import { getOrCreateFingerprint } from './utils/fingerprint'
-import {
-  generateSessionId,
-  getSessionData,
-  saveSessionData,
-  updateSessionActivity,
-  type SessionData
-} from './utils/session'
+import { type Router } from 'vitepress'
+import { type SessionData } from './utils/session'
 
 // 判断是否在浏览器环境运行
 const isBrowser = typeof window !== 'undefined'
@@ -20,6 +11,7 @@ const isBrowser = typeof window !== 'undefined'
 // 埋点事件类型
 export enum TrackEventType {
   PAGEVIEW = 'PAGEVIEW',
+  PAGE_LEAVE = 'PAGE_LEAVE',
   CLICK = 'CLICK',
   EXPOSURE = 'EXPOSURE', // 曝光
   CUSTOM = 'CUSTOM'      // 自定义事件
@@ -65,93 +57,14 @@ export interface TrackingOptions {
   };
 }
 
-// 设备指纹生成
+// 这里只生成并持久化随机匿名 ID，不采集硬件特征来计算设备指纹。
 function generateFingerprint(): string {
   if (!isBrowser) return 'server-side-rendering'
 
-  try {
-
-
-    // 收集更多设备信息提高唯一性
-    const components = [
-      navigator.userAgent || 'unknown',
-      `${screen.width || 0}x${screen.height || 0}`,
-      screen.colorDepth || 0,
-      new Date().getTimezoneOffset(),
-      navigator.language || 'unknown',
-      navigator.hardwareConcurrency || 0,
-      navigator.platform || 'unknown',
-      navigator.cookieEnabled ? '1' : '0',
-      navigator.doNotTrack || 'unknown',
-      // 添加更多唯一标识
-      navigator.vendor || 'unknown',
-      navigator.productSub || 'unknown',
-      navigator.maxTouchPoints || 0,
-      // 添加内存信息（如果可用）
-      // @ts-ignore
-      navigator.deviceMemory || 'unknown',
-      // 添加连接信息（如果可用）
-      // @ts-ignore
-      navigator.connection?.type || 'unknown',
-      // 添加随机种子
-      Math.random().toString(36).substring(2) + Date.now().toString(36)
-    ];
-
-
-
-    // 生成指纹
-    const rawFingerprint = components.join('|');
-
-
-    const hash = hashCode(rawFingerprint);
-
-
-    // 确保生成的指纹是正数且为16进制
-    const fingerprint = Math.abs(hash).toString(16);
-
-
-    // 验证指纹有效性
-    if (!fingerprint || fingerprint.length < 8) {
-      throw new Error('生成的指纹无效');
-    }
-
-    return fingerprint;
-  } catch (error) {
-    console.error('[Tracker Error] 生成设备指纹失败:', error);
-
-    // 使用备用方案生成指纹
-    const timestamp = Date.now();
-    const random = Math.random();
-    const fallbackComponents = [
-      timestamp.toString(36),
-      random.toString(36).substring(2),
-      navigator.userAgent || 'unknown'
-    ];
-
-    const fallbackFingerprint = hashCode(fallbackComponents.join('|')).toString(16);
-
-
-    return fallbackFingerprint;
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
   }
-}
-
-// 改进的哈希函数
-function hashCode(str: string): number {
-  let hash = 0;
-  if (!str || str.length === 0) return 1;
-
-  // 使用FNV-1a哈希算法
-  const FNV_PRIME = 16777619;
-  const FNV_OFFSET_BASIS = 2166136261;
-
-  hash = FNV_OFFSET_BASIS;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash *= FNV_PRIME;
-  }
-
-  // 确保返回正数
-  return Math.abs(hash || 1);
+  return `anon_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`
 }
 
 // 生成随机会话ID
@@ -168,6 +81,21 @@ export class Tracker {
   private readonly SESSION_STORAGE_KEY = 'track_session_data';
   private readonly FINGERPRINT_STORAGE_KEY = 'track_device_fingerprint';
   private pageEnterTime: number = 0;
+  private currentPagePath: string = '';
+  private clickHandler: ((event: MouseEvent) => void) | null = null;
+  private readonly pageHideHandler = () => {
+    this.trackPageLeave(Date.now());
+    this.currentPagePath = '';
+    this.pageEnterTime = 0;
+    this.flush();
+  };
+  private readonly pageShowHandler = (event: PageTransitionEvent) => {
+    if (event.persisted && !this.currentPagePath) {
+      let path = window.location.pathname;
+      try { path = decodeURIComponent(path); } catch { /* 保留原路径 */ }
+      this.trackPageView(path);
+    }
+  };
 
   constructor(options: TrackingOptions) {
     // 默认配置
@@ -197,6 +125,8 @@ export class Tracker {
 
     // 发送缓冲区内事件
     this.startBatchTimer();
+    window.addEventListener('pagehide', this.pageHideHandler);
+    window.addEventListener('pageshow', this.pageShowHandler);
 
     this.log('Tracker初始化 - 完成');
   }
@@ -414,32 +344,32 @@ export class Tracker {
       const ua = navigator.userAgent.toLowerCase();
       this.log('User Agent:', ua);
 
-      // 基本操作系统检测
+      // 移动系统要先于其 UA 中包含的桌面系统关键字判断。
       let os = 'unknown';
-      if (/windows/.test(ua)) {
+      if (/iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && /mobile/.test(ua))) {
+        os = 'iOS';
+      } else if (/android/.test(ua)) {
+        os = 'Android';
+      } else if (/windows/.test(ua)) {
         os = 'Windows';
       } else if (/macintosh|mac os x/.test(ua)) {
         os = 'macOS';
       } else if (/linux/.test(ua)) {
         os = 'Linux';
-      } else if (/android/.test(ua)) {
-        os = 'Android';
-      } else if (/iphone|ipad|ipod/.test(ua)) {
-        os = 'iOS';
       }
 
-      // 基本浏览器检测（按优先级排序）
+      // Chromium 系浏览器按更具体的品牌优先判断。
       let browser = 'unknown';
-      if (/edg\/|edge\//.test(ua)) {
+      if (/edg\/|edge\/|edgios\//.test(ua)) {
         browser = 'Edge';
-      } else if (/chrome\//.test(ua) && !/edg\/|edge\//.test(ua)) {
+      } else if (/opera|opr\/|opios\//.test(ua)) {
+        browser = 'Opera';
+      } else if (/chrome\/|crios\//.test(ua)) {
         browser = 'Chrome';
-      } else if (/firefox\//.test(ua)) {
+      } else if (/firefox\/|fxios\//.test(ua)) {
         browser = 'Firefox';
       } else if (/safari\//.test(ua) && !/chrome\//.test(ua)) {
         browser = 'Safari';
-      } else if (/opera|opr\//.test(ua)) {
-        browser = 'Opera';
       }
 
       // 返回简单的平台信息
@@ -457,12 +387,9 @@ export class Tracker {
     if (!isBrowser) return {};
     try {
       return {
-        screen_width: screen.width || 0,
-        screen_height: screen.height || 0,
-        color_depth: screen.colorDepth || 0,
         language: navigator.language || 'unknown',
-        hardware_concurrency: navigator.hardwareConcurrency || 0,
-        platform: navigator.platform || 'unknown',
+        viewport_width: window.innerWidth || 0,
+        viewport_height: window.innerHeight || 0
       };
     } catch { return {}; }
   }
@@ -502,52 +429,46 @@ export class Tracker {
   public trackPageView(path: string, referrer?: string, extraMetadata?: Record<string, any>): void {
     if (!isBrowser) return;
 
-    // 不再对路径进行编码，直接发送中文路径，后端会处理
     const pagePath = path;
-    const pageReferrer = referrer || '';
-
+    if (!pagePath || pagePath === this.currentPagePath) return;
     const now = Date.now();
 
-    // 计算持续时间（转换为秒）
-    let event_duration = 0;
-    if (this.pageEnterTime > 0) {
-      const durationMs = Math.max(0, now - this.pageEnterTime);
-      event_duration = Math.floor(durationMs / 1000); // 转换为秒
-      this.log(`页面停留时间计算:
-        当前时间: ${now}
-        进入时间: ${this.pageEnterTime}
-        停留时间: ${durationMs}ms (${event_duration}秒)
-      `);
-    } else {
-      this.log('页面首次加载，无法计算停留时间');
-    }
+    // 先为上一页记录离开事件，停留时间不会再错误归到新页面。
+    this.trackPageLeave(now);
 
-    // 更新页面进入时间
+    this.currentPagePath = pagePath;
     this.pageEnterTime = now;
-    this.log(`更新页面进入时间: ${this.pageEnterTime}`);
-
-    // 获取平台信息
     const platform = this.getPlatformInfo();
-    this.log(`发送埋点数据: platform=${platform}, duration=${event_duration}秒, path=${pagePath}`);
-
-    // 构建元数据，包含上一次的时间戳
-    const metadata = {
-      title: typeof document !== 'undefined' ? document.title : '',
-      url: typeof window !== 'undefined' ? window.location.href : '',
-      prev_timestamp: this.pageEnterTime,
-      current_timestamp: now,
-      duration_ms: event_duration * 1000, // 保存毫秒值在metadata中，用于调试
-      platform_info: platform,
-      ...extraMetadata
-    };
 
     this.track({
       event_type: TrackEventType.PAGEVIEW,
       page_path: pagePath,
-      referrer: pageReferrer,
-      event_duration,  // 已经是秒
+      referrer: referrer || '',
+      event_duration: 0,
       platform,
-      metadata
+      metadata: {
+        title: document.title,
+        url: window.location.href,
+        entered_at: now,
+        platform_info: platform,
+        ...extraMetadata
+      }
+    });
+  }
+
+  private trackPageLeave(now: number): void {
+    if (!this.currentPagePath || this.pageEnterTime <= 0) return;
+
+    const durationMs = Math.max(0, now - this.pageEnterTime);
+    this.track({
+      event_type: TrackEventType.PAGE_LEAVE,
+      page_path: this.currentPagePath,
+      event_duration: Math.min(Math.floor(durationMs / 1000), 3600),
+      platform: this.getPlatformInfo(),
+      metadata: {
+        duration_ms: durationMs,
+        exited_at: now
+      }
     });
   }
 
@@ -630,8 +551,8 @@ export class Tracker {
       })
       .catch(error => {
         this.log('发送事件失败', error);
-        // 重新加入队列，优先发送
-        this.events = [...eventsToSend, ...this.events];
+        // 网络持续异常时限制内存队列，优先保留较新的行为事件。
+        this.events = [...eventsToSend, ...this.events].slice(-100);
       });
   }
 
@@ -649,7 +570,7 @@ export class Tracker {
       // 确保event_duration是数字类型
       const event_duration = typeof event.event_duration === 'number' ? event.event_duration : 0;
 
-      this.log(`处理事件: type=${event.event_type}, duration=${event_duration}ms, platform=${platform}`);
+      this.log(`处理事件: type=${event.event_type}, duration=${event_duration}秒, platform=${platform}`);
 
       return {
         ...event,
@@ -708,28 +629,14 @@ export class Tracker {
   public dispose(): void {
     if (!isBrowser) return;
 
-    // 记录最后一个页面的访问时长
-    if (this.pageEnterTime > 0) {
-      const now = Date.now();
-      const lastPageDurationMs = now - this.pageEnterTime;
-      const lastPageDuration = Math.floor(lastPageDurationMs / 1000); // 转换为秒
-      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-
-      if (currentPath) {
-        this.log(`记录最后一个页面的停留时间: ${lastPageDurationMs}ms (${lastPageDuration}秒)`);
-
-        this.track({
-          event_type: TrackEventType.PAGEVIEW,
-          page_path: currentPath,
-          event_duration: lastPageDuration,  // 已经是秒
-          platform: this.getPlatformInfo(),
-          metadata: {
-            is_last_page: true,
-            duration_ms: lastPageDurationMs,  // 保存毫秒值在metadata中，用于调试
-            exit_timestamp: now
-          }
-        });
-      }
+    this.trackPageLeave(Date.now());
+    this.currentPagePath = '';
+    this.pageEnterTime = 0;
+    window.removeEventListener('pagehide', this.pageHideHandler);
+    window.removeEventListener('pageshow', this.pageShowHandler);
+    if (this.clickHandler) {
+      document.removeEventListener('click', this.clickHandler, true);
+      this.clickHandler = null;
     }
 
     if (this.timer) {
@@ -762,7 +669,9 @@ export class Tracker {
       return;
     }
 
-    document.addEventListener('click', (event) => {
+    if (this.clickHandler) return;
+
+    this.clickHandler = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target) return;
 
@@ -775,7 +684,8 @@ export class Tracker {
       if (this.shouldTrackElement(target) && currentPath) {
         this.trackClick(target, currentPath);
       }
-    }, { passive: true, capture: true });
+    };
+    document.addEventListener('click', this.clickHandler, { passive: true, capture: true });
   }
 
   // 判断元素是否应该被跟踪
@@ -836,6 +746,10 @@ export function createTrackingPlugin(options: TrackingOptions) {
 
     install(router: Router) {
       if (!isBrowser) return;
+      const privacyNavigator = navigator as Navigator & { globalPrivacyControl?: boolean };
+      if (navigator.doNotTrack === '1' || privacyNavigator.globalPrivacyControl === true) {
+        return;
+      }
 
       this.tracker = new Tracker(options);
 
@@ -843,12 +757,9 @@ export function createTrackingPlugin(options: TrackingOptions) {
         // 1. 路由变化时触发
         router.onAfterRouteChanged = (to: any) => {
           const toPath = typeof to === 'object' && to && 'path' in to ? String(to.path) : '';
-          const fromPath = router.route && typeof router.route === 'object' && 'path' in router.route
-            ? String(router.route.path)
-            : '';
 
           if (this.tracker && toPath) {
-            this.tracker.trackPageView(toPath, fromPath);
+            this.tracker.trackPageView(toPath);
           }
         };
 
@@ -859,46 +770,6 @@ export function createTrackingPlugin(options: TrackingOptions) {
 
         if (this.tracker && currentPath) {
           this.tracker.trackPageView(currentPath);
-        }
-
-        // 3. 添加 History API 监听
-        if (typeof window !== 'undefined') {
-          // 监听 popstate 事件（浏览器前进/后退）
-          window.addEventListener('popstate', () => {
-            if (this.tracker) {
-              this.tracker.trackPageView(window.location.pathname, document.referrer);
-            }
-          });
-
-          // 重写 pushState 和 replaceState
-          const originalPushState = history.pushState;
-          const originalReplaceState = history.replaceState;
-          const tracker = this.tracker; // 捕获 tracker 引用
-
-          history.pushState = function (...args) {
-            originalPushState.apply(this, args);
-            if (tracker) {
-              tracker.trackPageView(window.location.pathname, document.referrer);
-            }
-          };
-
-          history.replaceState = function (...args) {
-            originalReplaceState.apply(this, args);
-            if (tracker) {
-              tracker.trackPageView(window.location.pathname, document.referrer);
-            }
-          };
-        }
-
-        // 4. 添加可视性变化监听
-        if (typeof document !== 'undefined') {
-          document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && this.tracker) {
-              this.tracker.trackPageView(window.location.pathname, document.referrer, {
-                visibility_change: true
-              });
-            }
-          });
         }
       }
 
@@ -920,4 +791,4 @@ export function createTrackingPlugin(options: TrackingOptions) {
   };
 }
 
-export default createTrackingPlugin; 
+export default createTrackingPlugin;
