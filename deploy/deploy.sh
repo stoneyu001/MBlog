@@ -115,7 +115,7 @@ setup_env() {
     if [ ! -f "$PROJECT_DIR/.env" ]; then
         warn ".env 文件不存在，从模板创建..."
         cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
-        warn "⚠️  请编辑 .env 文件修改数据库密码！"
+        warn "⚠️  请填写 .env 中的三个密码配置"
         warn "   运行: nano $PROJECT_DIR/.env"
         warn "   修改完成后重新运行此脚本"
         echo ""
@@ -125,24 +125,11 @@ setup_env() {
         fi
     fi
 
-    # 验证 .env 中密码已修改
-    if grep -q "your_secure_password_here" "$PROJECT_DIR/.env" 2>/dev/null; then
-        error ".env 中的数据库密码尚未修改，请先编辑 .env 文件"
-    fi
-
-    for key in ADMIN_USER ADMIN_PASSWORD JWT_SECRET; do
+    for key in POSTGRES_PASSWORD ADMIN_PASSWORD JWT_SECRET; do
         if ! grep -Eq "^${key}=.+" "$PROJECT_DIR/.env" 2>/dev/null; then
-            error ".env 缺少 ${key}，请参考 .env.example 补充"
+            error ".env 中的 ${key} 不能为空"
         fi
     done
-
-    if grep -Eq '^ADMIN_PASSWORD=(admin123|replace_with_a_strong_password)$' "$PROJECT_DIR/.env" 2>/dev/null; then
-        error ".env 中的 ADMIN_PASSWORD 仍是默认值或示例值"
-    fi
-
-    if grep -Eq '^JWT_SECRET=(your-secret-key-should-be-complex|replace_with_at_least_32_random_characters)$' "$PROJECT_DIR/.env" 2>/dev/null; then
-        error ".env 中的 JWT_SECRET 仍是示例值"
-    fi
 
     success ".env 配置已就绪"
 }
@@ -357,7 +344,7 @@ print_result() {
     echo ""
     echo "  🌐 博客首页:   https://$DOMAIN"
     echo "  📊 数据分析:   https://$DOMAIN/admin"
-    echo "  🔑 管理凭据:   使用 .env 中的 ADMIN_USER / ADMIN_PASSWORD"
+    echo "  🔑 管理凭据:   用户名默认为 admin，密码使用 .env 中的 ADMIN_PASSWORD"
     echo ""
     echo "  📋 常用命令:"
     echo "    查看日志:    cd $PROJECT_DIR && $COMPOSE_CMD logs -f"

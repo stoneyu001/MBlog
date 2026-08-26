@@ -19,7 +19,7 @@ cd MBlog
 
 # 2. 配置环境变量
 cp .env.example .env
-nano .env  # 修改数据库密码、管理员密码和 JWT_SECRET
+nano .env  # 填写三个必填值
 
 # 3. 一键部署（包括 Docker 构建、Nginx SSL 配置、证书申请、自动续签）
 sudo bash deploy/deploy.sh
@@ -132,8 +132,11 @@ sudo systemctl status certbot-renew.timer  # 查看自动续签状态
 ## 配置
 
 1. 复制 `.env.example` 为 `.env`
-2. 修改数据库密码、管理员密码、JWT_SECRET 和端口；如代理网络不是 Docker 默认网段，同时调整 `TRUSTED_PROXIES`
+2. 填写 `POSTGRES_PASSWORD`、`ADMIN_PASSWORD` 和 `JWT_SECRET`；后台用户名默认为 `admin`
 3. 运行 `sudo bash deploy/deploy.sh` 完成全部配置
+
+其余参数均有默认值。旧 `.env` 中已有的 `POSTGRES_USER`、`POSTGRES_DB`、
+`ADMIN_USER`、`FRONTEND_PORT` 等可选配置仍会继续生效，无需删除。
 
 ## License
 

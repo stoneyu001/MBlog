@@ -22,7 +22,10 @@ const (
 
 // getAdminUser 从环境变量获取管理员用户名
 func getAdminUser() string {
-	return os.Getenv("ADMIN_USER")
+	if value := os.Getenv("ADMIN_USER"); value != "" {
+		return value
+	}
+	return "admin"
 }
 
 // getAdminPassword 从环境变量获取管理员密码
