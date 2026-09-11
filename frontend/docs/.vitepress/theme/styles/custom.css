@@ -1,28 +1,28 @@
 :root {
   --mblog-font-display: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
   --mblog-font-sans: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-  --mblog-paper: rgba(250, 247, 239, 0.94);
-  --mblog-paper-soft: rgba(255, 252, 245, 0.76);
+  --mblog-paper: rgba(246, 251, 255, 0.94);
+  --mblog-paper-soft: rgba(255, 255, 255, 0.82);
   --mblog-input-bg: rgba(255, 255, 255, 0.72);
   --mblog-border: rgba(65, 52, 39, 0.13);
   --mblog-border-strong: rgba(65, 52, 39, 0.22);
-  --mblog-accent-soft: rgba(157, 73, 43, 0.09);
-  --mblog-focus-ring: rgba(157, 73, 43, 0.2);
+  --mblog-accent-soft: rgba(35, 112, 164, 0.09);
+  --mblog-focus-ring: rgba(35, 112, 164, 0.35);
   --mblog-shadow-sm: 0 8px 24px rgba(15, 24, 26, 0.08);
   --mblog-shadow-md: 0 18px 45px rgba(15, 24, 26, 0.14);
-  --vp-font-family-base: var(--mblog-font-display);
+  --vp-font-family-base: var(--mblog-font-sans);
   --vp-font-family-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  --vp-c-brand-1: #9d492b;
-  --vp-c-brand-2: #7d3823;
-  --vp-c-brand-3: #b85d39;
+  --vp-c-brand-1: #2370a4;
+  --vp-c-brand-2: #185782;
+  --vp-c-brand-3: #3488bc;
   --vp-c-brand-soft: var(--mblog-accent-soft);
-  --vp-c-text-1: #29251f;
-  --vp-c-text-2: #595047;
-  --vp-c-text-3: #81766b;
-  --vp-c-bg: #f7f2e8;
-  --vp-c-bg-alt: #eee7da;
-  --vp-c-bg-elv: #fffaf1;
-  --vp-c-bg-soft: #f1eadf;
+  --vp-c-text-1: #20374b;
+  --vp-c-text-2: #516879;
+  --vp-c-text-3: #697f90;
+  --vp-c-bg: #f5faff;
+  --vp-c-bg-alt: #e9f2f8;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #edf5fa;
   --vp-c-divider: var(--mblog-border);
   --vp-home-hero-name-color: #fff9ee;
   --vp-button-brand-bg: var(--vp-c-brand-1);
@@ -41,10 +41,10 @@ html.dark {
   --mblog-focus-ring: rgba(222, 142, 101, 0.22);
   --mblog-shadow-sm: 0 8px 26px rgba(0, 0, 0, 0.2);
   --mblog-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.3);
-  --vp-c-brand-1: #de8e65;
-  --vp-c-brand-2: #edaa86;
-  --vp-c-brand-3: #c97651;
-  --vp-c-text-1: #f1eadf;
+  --vp-c-brand-1: #8ac9ee;
+  --vp-c-brand-2: #b7e2fa;
+  --vp-c-brand-3: #63acd8;
+  --vp-c-text-1: #edf5fa;
   --vp-c-text-2: #cfc4b6;
   --vp-c-text-3: #9f958a;
   --vp-c-bg: #182020;
@@ -61,6 +61,7 @@ html {
 body {
   min-height: 100vh;
   background: #122022;
+  isolation: isolate;
 }
 
 body::before,
@@ -79,8 +80,8 @@ body::before {
 body::after {
   z-index: -1;
   background:
-    linear-gradient(180deg, rgba(6, 17, 19, 0.4) 0%, rgba(9, 20, 21, 0.2) 36%, rgba(8, 18, 20, 0.68) 100%),
-    linear-gradient(90deg, rgba(7, 17, 18, 0.2), transparent 40%, rgba(7, 17, 18, 0.15));
+    linear-gradient(90deg, rgba(6, 38, 65, 0.48), transparent 70%),
+    linear-gradient(180deg, transparent 60%, rgba(6, 38, 65, 0.18));
 }
 
 #app,
@@ -117,7 +118,7 @@ textarea:focus-visible,
 }
 
 .VPNavBar {
-  background: rgba(13, 26, 28, 0.72) !important;
+  background: rgba(13,  50, 80, 0.32) !important;
   border-bottom: 1px solid rgba(255, 250, 240, 0.1) !important;
   box-shadow: 0 8px 26px rgba(4, 11, 12, 0.08);
   backdrop-filter: blur(16px) saturate(115%);
@@ -152,7 +153,7 @@ textarea:focus-visible,
 .VPNavBarMenuLink.active,
 .VPNavScreenMenuLink:hover,
 .VPNavScreenMenuLink.active {
-  color: #f0ad89 !important;
+  color: #b7e2fa !important;
 }
 
 .VPNavScreen {
@@ -167,7 +168,7 @@ textarea:focus-visible,
 }
 
 .VPNavBarSearchButton:hover {
-  color: #fffaf1 !important;
+  color: #ffffff !important;
   background: rgba(255, 255, 255, 0.14) !important;
   border-color: rgba(255, 255, 255, 0.24) !important;
 }
@@ -184,7 +185,7 @@ textarea:focus-visible,
 }
 
 .VPHomeHero {
-  min-height: min(690px, 78vh);
+  min-height: max(620px, calc(100svh - 64px));
   display: flex;
   align-items: center;
 }
@@ -206,7 +207,7 @@ textarea:focus-visible,
 
 .VPHomeHero .name {
   font-family: var(--mblog-font-display);
-  font-size: clamp(2.8rem, 7vw, 5.4rem);
+  font-size: clamp(2.6rem, 5.6vw, 4.6rem);
   letter-spacing: 0.02em;
 }
 
@@ -214,7 +215,7 @@ textarea:focus-visible,
   max-width: 690px;
   color: #fff9ef;
   font-family: var(--mblog-font-display);
-  font-size: clamp(1.65rem, 4.2vw, 3.25rem);
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
   line-height: 1.25;
 }
 
@@ -234,7 +235,7 @@ textarea:focus-visible,
 }
 
 .VPButton.brand {
-  border-color: #a85031 !important;
+  border-color: var(--vp-c-brand-1) !important;
   box-shadow: 0 8px 24px rgba(20, 9, 5, 0.2);
 }
 
@@ -256,11 +257,11 @@ textarea:focus-visible,
 }
 
 .VPFeatures .items {
-  gap: 1rem;
+  gap: 0;
 }
 
 .VPFeature {
-  background: rgba(248, 243, 233, 0.9) !important;
+  background: var(--mblog-paper) !important;
   border: 1px solid rgba(255, 255, 255, 0.38) !important;
   border-radius: 14px !important;
   box-shadow: 0 14px 38px rgba(5, 15, 16, 0.16);
@@ -274,12 +275,12 @@ textarea:focus-visible,
 }
 
 .VPFeature .title {
-  color: #2b2721 !important;
+  color: var(--vp-c-text-1) !important;
   font-family: var(--mblog-font-display);
 }
 
 .VPFeature .details {
-  color: #655b50 !important;
+  color: var(--vp-c-text-2) !important;
   font-family: var(--mblog-font-sans);
   line-height: 1.75;
 }
@@ -287,15 +288,18 @@ textarea:focus-visible,
 .VPHomeContent {
   max-width: none !important;
   padding: 0 !important;
-  background: var(--mblog-paper);
+  background: transparent;
   border-top: 1px solid rgba(255, 255, 255, 0.36);
-  box-shadow: 0 -20px 60px rgba(5, 15, 16, 0.16);
+  box-shadow: none;
 }
 
 .home-journal {
   max-width: 1152px;
   margin: 0 auto;
-  padding: clamp(3.2rem, 8vw, 6rem) 24px;
+  padding: clamp(2rem, 5vw, 4rem);
+  background: var(--mblog-paper);
+  border: 1px solid var(--mblog-border);
+  border-radius: 24px 24px 0 0;
 }
 
 .home-journal__kicker {
@@ -365,7 +369,7 @@ textarea:focus-visible,
 
 .VPSidebarItem.is-active > .item .link > .text,
 .VPSidebarItem .link:hover > .text {
-  color: #efa783 !important;
+  color: #b7e2fa !important;
 }
 
 .VPDoc .content-container {
@@ -458,7 +462,7 @@ textarea:focus-visible,
 
 .VPDocAsideOutline .outline-link.active,
 .VPDocAsideOutline .outline-link:hover {
-  color: #efa783;
+  color: #b7e2fa;
 }
 
 .VPDocFooter .pager-link {
@@ -524,7 +528,7 @@ textarea:focus-visible,
   }
 
   body::after {
-    background: linear-gradient(180deg, rgba(5, 15, 17, 0.48) 0%, rgba(8, 18, 20, 0.3) 32%, rgba(7, 17, 18, 0.75) 100%);
+    background: linear-gradient(180deg, rgba(6, 38, 65, 0.28), rgba(6, 38, 65, 0.12) 60%, rgba(6, 38, 65, 0.3));
   }
 
   .VPNavBar {
@@ -532,7 +536,8 @@ textarea:focus-visible,
   }
 
   .VPHomeHero {
-    min-height: 620px;
+    min-height: calc(100svh - 64px);
+    text-align: left;
   }
 
   .VPHomeHero .container {
@@ -599,4 +604,25 @@ textarea:focus-visible,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 清除默认导航内层的实色底，保持整条导航一致。 */
+.VPNavBar .content-body,
+.VPNavBar .divider,
+.VPNavBar .divider-line {
+  background: transparent !important;
+}
+
+.VPHomeHero .container { width: 100%; }
+.VPHomeHero .main { margin-right: auto; }
+.VPHomeHero .name { line-height: 1.2; padding-bottom: 18px; }
+.VPHomeHero .text { max-width: 540px; }
+.VPHomeHero .tagline { max-width: 430px; }
+.VPHomeFeatures .item { min-width: 0; }
+.VPFeature .link-text { color: var(--vp-c-brand-1); }
+@media (max-width: 768px) {
+  .VPHomeHero .container { padding-top: 24px; padding-bottom: 120px; }
+  .VPHomeHero .main { text-align: left; }
+  .VPHomeHero .actions { justify-content: flex-start; }
+  .home-journal { margin: 0 16px; padding: 28px 20px; }
 }

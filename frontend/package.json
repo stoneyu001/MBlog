@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "packageManager": "pnpm@9.10.0",
   "scripts": {
     "dev": "vitepress dev docs",
