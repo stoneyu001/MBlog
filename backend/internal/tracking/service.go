@@ -16,6 +16,11 @@ type TrackingService struct {
 	dataChan      chan *UnpartitionedTrackEvent
 	batchSize     int
 	flushInterval time.Duration
+	stop          chan struct{}
+	done          chan struct{}
+	closeOnce     sync.Once
+	stateMu       sync.RWMutex
+	stopped       bool
 }
 
 // NewTrackingService 创建埋点服务
@@ -26,6 +31,8 @@ func NewTrackingService(repo *repository.TrackingRepo) *TrackingService {
 		dataChan:      make(chan *UnpartitionedTrackEvent, 50000),
 		batchSize:     200,
 		flushInterval: 10 * time.Second,
+		stop:          make(chan struct{}),
+		done:          make(chan struct{}),
 	}
 	go ts.batchProcessor()
 	return ts
@@ -33,6 +40,12 @@ func NewTrackingService(repo *repository.TrackingRepo) *TrackingService {
 
 // TrackUnpartitionedEvent 异步记录埋点事件
 func (ts *TrackingService) TrackUnpartitionedEvent(event *UnpartitionedTrackEvent) {
+	ts.stateMu.RLock()
+	defer ts.stateMu.RUnlock()
+	if ts.stopped {
+		return
+	}
+
 	select {
 	case ts.dataChan <- event:
 	default:
@@ -44,6 +57,7 @@ func (ts *TrackingService) TrackUnpartitionedEvent(event *UnpartitionedTrackEven
 func (ts *TrackingService) batchProcessor() {
 	ticker := time.NewTicker(ts.flushInterval)
 	defer ticker.Stop()
+	defer close(ts.done)
 	for {
 		select {
 		case event := <-ts.dataChan:
@@ -53,22 +67,54 @@ func (ts *TrackingService) batchProcessor() {
 				batch := ts.buffer
 				ts.buffer = make([]*UnpartitionedTrackEvent, 0, ts.batchSize)
 				ts.bufferMu.Unlock()
-				go ts.flush(batch)
+				ts.flush(batch)
 			} else {
 				ts.bufferMu.Unlock()
 			}
 		case <-ticker.C:
-			ts.bufferMu.Lock()
-			if len(ts.buffer) > 0 {
-				batch := ts.buffer
-				ts.buffer = make([]*UnpartitionedTrackEvent, 0, ts.batchSize)
-				ts.bufferMu.Unlock()
-				go ts.flush(batch)
-			} else {
-				ts.bufferMu.Unlock()
-			}
+			ts.flushBuffered()
+		case <-ts.stop:
+			ts.drainPendingEvents()
+			ts.flushBuffered()
+			return
 		}
 	}
+}
+
+func (ts *TrackingService) flushBuffered() {
+	ts.flush(ts.takeBuffer())
+}
+
+func (ts *TrackingService) takeBuffer() []*UnpartitionedTrackEvent {
+	ts.bufferMu.Lock()
+	defer ts.bufferMu.Unlock()
+	batch := ts.buffer
+	ts.buffer = make([]*UnpartitionedTrackEvent, 0, ts.batchSize)
+	return batch
+}
+
+func (ts *TrackingService) drainPendingEvents() {
+	for {
+		select {
+		case event := <-ts.dataChan:
+			ts.bufferMu.Lock()
+			ts.buffer = append(ts.buffer, event)
+			ts.bufferMu.Unlock()
+		default:
+			return
+		}
+	}
+}
+
+// Close 停止批处理器，并在数据库关闭前同步写入剩余事件。
+func (ts *TrackingService) Close() {
+	ts.closeOnce.Do(func() {
+		ts.stateMu.Lock()
+		ts.stopped = true
+		close(ts.stop)
+		ts.stateMu.Unlock()
+		<-ts.done
+	})
 }
 
 func (ts *TrackingService) flush(events []*UnpartitionedTrackEvent) {

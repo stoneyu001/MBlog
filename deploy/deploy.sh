@@ -14,7 +14,7 @@
 #
 # ============================================
 
-set -uo pipefail
+set -euo pipefail
 
 # ============================================
 # 配置区域
@@ -115,7 +115,7 @@ setup_env() {
     if [ ! -f "$PROJECT_DIR/.env" ]; then
         warn ".env 文件不存在，从模板创建..."
         cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
-        warn "⚠️  请编辑 .env 文件修改数据库密码！"
+        warn "⚠️  请填写 .env 中的三个密码配置"
         warn "   运行: nano $PROJECT_DIR/.env"
         warn "   修改完成后重新运行此脚本"
         echo ""
@@ -125,15 +125,11 @@ setup_env() {
         fi
     fi
 
-    # 验证 .env 中密码已修改
-    if grep -q "your_secure_password_here" "$PROJECT_DIR/.env" 2>/dev/null; then
-        error ".env 中的数据库密码尚未修改，请先编辑 .env 文件"
-    fi
-
-    # 验证 JWT 密钥已修改
-    if grep -q "your-secret-key-should-be-complex" "$PROJECT_DIR/.env" 2>/dev/null; then
-        error ".env 中的 JWT_SECRET 尚未修改，请先编辑 .env 文件"
-    fi
+    for key in POSTGRES_PASSWORD ADMIN_PASSWORD JWT_SECRET; do
+        if ! grep -Eq "^${key}=.+" "$PROJECT_DIR/.env" 2>/dev/null; then
+            error ".env 中的 ${key} 不能为空"
+        fi
+    done
 
     success ".env 配置已就绪"
 }
@@ -175,7 +171,7 @@ server {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For \$remote_addr;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
@@ -347,8 +343,8 @@ print_result() {
     echo -e "${GREEN}============================================${NC}"
     echo ""
     echo "  🌐 博客首页:   https://$DOMAIN"
-    echo "  🔧 管理后台:   https://$DOMAIN/admin"
-    echo "  🔑 默认账号:   admin / admin123"
+    echo "  📊 数据分析:   https://$DOMAIN/admin"
+    echo "  🔑 管理凭据:   用户名默认为 admin，密码使用 .env 中的 ADMIN_PASSWORD"
     echo ""
     echo "  📋 常用命令:"
     echo "    查看日志:    cd $PROJECT_DIR && $COMPOSE_CMD logs -f"
@@ -372,6 +368,7 @@ main() {
             info "模式: 更新部署（重新构建镜像）"
             echo ""
             check_prerequisites
+            setup_env
             start_docker "build"
             setup_ssl
             print_result

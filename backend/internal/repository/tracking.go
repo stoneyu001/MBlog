@@ -113,19 +113,31 @@ func (r *TrackingRepo) insertOne(e TrackEventRow) error {
 
 // OverviewStats 概览统计数据
 type OverviewStats struct {
-	TotalPV, TotalUV, TodayPV, TodayUV, YesterdayPV, YesterdayUV, OnlineUsers int64
+	TotalPV, TotalUV, TodayPV, TodayUV, YesterdayPV, YesterdayUV, OnlineUsers, AverageReadSeconds int64
 }
 
 func (r *TrackingRepo) OverviewStats() (OverviewStats, error) {
 	var s OverviewStats
-	r.db.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT session_id) FROM track_event WHERE event_type = 'PAGEVIEW'`).
-		Scan(&s.TotalPV, &s.TotalUV)
-	r.db.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT session_id) FROM track_event WHERE created_at >= CURRENT_DATE AND event_type = 'PAGEVIEW'`).
-		Scan(&s.TodayPV, &s.TodayUV)
-	r.db.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT session_id) FROM track_event WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE AND event_type = 'PAGEVIEW'`).
-		Scan(&s.YesterdayPV, &s.YesterdayUV)
-	r.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM track_event WHERE created_at >= NOW() - INTERVAL '5 minutes'`).
-		Scan(&s.OnlineUsers)
+	if err := r.db.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT NULLIF(user_id, '')) FROM track_event WHERE event_type = 'PAGEVIEW'`).
+		Scan(&s.TotalPV, &s.TotalUV); err != nil {
+		return s, err
+	}
+	if err := r.db.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT NULLIF(user_id, '')) FROM track_event WHERE created_at >= CURRENT_DATE AND event_type = 'PAGEVIEW'`).
+		Scan(&s.TodayPV, &s.TodayUV); err != nil {
+		return s, err
+	}
+	if err := r.db.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT NULLIF(user_id, '')) FROM track_event WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE AND event_type = 'PAGEVIEW'`).
+		Scan(&s.YesterdayPV, &s.YesterdayUV); err != nil {
+		return s, err
+	}
+	if err := r.db.QueryRow(`SELECT COUNT(DISTINCT NULLIF(user_id, '')) FROM track_event WHERE created_at >= NOW() - INTERVAL '5 minutes' AND event_type = 'PAGEVIEW'`).
+		Scan(&s.OnlineUsers); err != nil {
+		return s, err
+	}
+	if err := r.db.QueryRow(`SELECT ROUND(COALESCE(AVG(event_duration), 0))::bigint FROM track_event WHERE event_type = 'PAGE_LEAVE' AND event_duration > 0 AND event_duration <= 3600`).
+		Scan(&s.AverageReadSeconds); err != nil {
+		return s, err
+	}
 	return s, nil
 }
 
@@ -139,19 +151,38 @@ type DailyStat struct {
 }
 
 func (r *TrackingRepo) DailyStats(days int) ([]DailyStat, error) {
+	if days < 1 {
+		days = 7
+	}
+	if days > 365 {
+		days = 365
+	}
 	rows, err := r.db.Query(`
-		SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as pv, COUNT(DISTINCT session_id) as uv
-		FROM track_event
-		WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' AND event_type = 'PAGEVIEW'
-		GROUP BY date ORDER BY date ASC
-	`)
+		WITH dates AS (
+			SELECT generate_series(
+				CURRENT_DATE - (($1 - 1) * INTERVAL '1 day'),
+				CURRENT_DATE,
+				INTERVAL '1 day'
+			)::date AS day
+		)
+		SELECT TO_CHAR(d.day, 'YYYY-MM-DD') AS date,
+			COUNT(e.id) AS pv,
+			COUNT(DISTINCT NULLIF(e.user_id, '')) AS uv
+		FROM dates d
+		LEFT JOIN track_event e
+			ON e.created_at >= d.day
+			AND e.created_at < d.day + INTERVAL '1 day'
+			AND e.event_type = 'PAGEVIEW'
+		GROUP BY d.day
+		ORDER BY d.day ASC
+	`, days)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	return scanSlice(rows, func(d *DailyStat) error {
 		return rows.Scan(&d.Date, &d.PV, &d.UV)
-	}), nil
+	})
 }
 
 // === 读取操作：热门页面 ===
@@ -166,11 +197,13 @@ type PageStat struct {
 
 func (r *TrackingRepo) TopPages(limit int) ([]PageStat, error) {
 	rows, err := r.db.Query(`
-		SELECT page_path, COUNT(*) as pv, COUNT(DISTINCT session_id) as uv
+		SELECT page_path,
+			COALESCE(MAX(NULLIF(metadata->>'title', '')), page_path) AS title,
+			COUNT(*) as pv,
+			COUNT(DISTINCT NULLIF(user_id, '')) as uv
 		FROM track_event
-		WHERE page_path NOT LIKE '/static/%' AND page_path NOT LIKE '/admin%'
-		  AND page_path NOT LIKE '%?%' AND page_path != '' AND page_path != '/'
-		  AND event_type = 'PAGEVIEW'
+		WHERE (page_path LIKE '/tech/%' OR page_path LIKE '/life/%')
+		  AND page_path NOT LIKE '%?%' AND event_type = 'PAGEVIEW'
 		GROUP BY page_path ORDER BY pv DESC LIMIT $1
 	`, limit)
 	if err != nil {
@@ -181,17 +214,19 @@ func (r *TrackingRepo) TopPages(limit int) ([]PageStat, error) {
 	var results []PageStat
 	for rows.Next() {
 		var p PageStat
-		if err := rows.Scan(&p.Path, &p.PV, &p.UV); err != nil {
-			continue
+		if err := rows.Scan(&p.Path, &p.Title, &p.PV, &p.UV); err != nil {
+			return nil, err
 		}
-		if decoded, err := url.QueryUnescape(p.Path); err == nil {
+		if decoded, err := url.PathUnescape(p.Path); err == nil {
 			p.Path = decoded
 		}
 		p.Path = strings.TrimSuffix(p.Path, ".html")
-		p.Title = p.Path
+		if p.Title == "" {
+			p.Title = p.Path
+		}
 		results = append(results, p)
 	}
-	return results, nil
+	return results, rows.Err()
 }
 
 // === 读取操作：分类统计 ===
@@ -213,7 +248,7 @@ func (r *TrackingRepo) CategoryStats(column string) ([]CategoryStat, error) {
 		return nil, nil
 	}
 	rows, err := r.db.Query(
-		"SELECT "+column+", COUNT(*) as count FROM track_event WHERE "+column+" IS NOT NULL AND "+column+" != '' GROUP BY "+column+" ORDER BY count DESC LIMIT 10",
+		"SELECT " + column + ", COUNT(*) as count FROM track_event WHERE event_type = 'PAGEVIEW' AND " + column + " IS NOT NULL AND " + column + " != '' GROUP BY " + column + " ORDER BY count DESC LIMIT 10",
 	)
 	if err != nil {
 		return nil, err
@@ -221,14 +256,14 @@ func (r *TrackingRepo) CategoryStats(column string) ([]CategoryStat, error) {
 	defer rows.Close()
 	return scanSlice(rows, func(c *CategoryStat) error {
 		return rows.Scan(&c.Name, &c.Value)
-	}), nil
+	})
 }
 
 func (r *TrackingRepo) MetadataStats(key string) ([]CategoryStat, error) {
 	rows, err := r.db.Query(`
 		SELECT metadata->>$1 as name, COUNT(*) as count
 		FROM track_event
-		WHERE metadata->>$1 IS NOT NULL AND metadata->>$1 != ''
+		WHERE event_type = 'PAGEVIEW' AND metadata->>$1 IS NOT NULL AND metadata->>$1 != ''
 		GROUP BY name ORDER BY count DESC LIMIT 10
 	`, key)
 	if err != nil {
@@ -237,7 +272,7 @@ func (r *TrackingRepo) MetadataStats(key string) ([]CategoryStat, error) {
 	defer rows.Close()
 	return scanSlice(rows, func(c *CategoryStat) error {
 		return rows.Scan(&c.Name, &c.Value)
-	}), nil
+	})
 }
 
 // === 工具 ===
@@ -272,14 +307,14 @@ func (e *TrackEventRow) defaults() {
 }
 
 // scanSlice 通用 rows → slice 转换
-func scanSlice[T any](rows *sql.Rows, scanFn func(*T) error) []T {
+func scanSlice[T any](rows *sql.Rows, scanFn func(*T) error) ([]T, error) {
 	var results []T
 	for rows.Next() {
 		var item T
 		if err := scanFn(&item); err != nil {
-			continue
+			return nil, err
 		}
 		results = append(results, item)
 	}
-	return results
+	return results, rows.Err()
 }

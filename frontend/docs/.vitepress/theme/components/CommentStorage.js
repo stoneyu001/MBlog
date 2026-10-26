@@ -1,32 +1,48 @@
-// 评论存储服务
-const STORAGE_KEY = 'mblog_comment_user';
+const STORAGE_KEY = 'mblog_comment_user_v2'
+const LEGACY_STORAGE_KEY = 'mblog_comment_user'
 
-/**
- * 保存评论者信息到本地存储
- * @param {object} userInfo - 包含昵称和邮箱的对象
- */
+function normalizeUser(value) {
+  if (!value || typeof value !== 'object' || typeof value.nickname !== 'string') {
+    return null
+  }
+
+  const nickname = value.nickname.trim().slice(0, 100)
+  return nickname ? { nickname } : null
+}
+
 export function saveCommentUser(userInfo) {
+  if (typeof localStorage === 'undefined') return
+
   try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userInfo));
+    const user = normalizeUser(userInfo)
+    if (user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     }
-  } catch (error) {
-    console.error('保存评论用户信息失败:', error);
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+  } catch {
+    // 隐私模式或存储配额不足时，评论本身仍可正常提交。
   }
 }
 
-/**
- * 从本地存储获取评论者信息
- * @returns {object|null} 包含昵称和邮箱的对象，如果没有则返回null
- */
 export function getCommentUser() {
+  if (typeof localStorage === 'undefined') return null
+
   try {
-    if (typeof localStorage !== 'undefined') {
-      const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : null;
+    const current = normalizeUser(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'))
+    if (current) return current
+
+    const legacy = normalizeUser(JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || 'null'))
+    if (legacy) {
+      saveCommentUser(legacy)
+      return legacy
     }
-  } catch (error) {
-    console.error('获取评论用户信息失败:', error);
+
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+  } catch {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
   }
-  return null;
-} 
+
+  return null
+}

@@ -32,7 +32,7 @@ func LoadConfig() (*Config, error) {
 			Host:   getEnv("DB_HOST", "db"),
 			Port:   getEnv("DB_PORT", "5432"),
 			User:   getEnv("DB_USER", "postgres"),
-			DBName: getEnv("POSTGRES_DB", "blog_db"),
+			DBName: getEnv("DB_NAME", getEnv("POSTGRES_DB", "blog_db")),
 		},
 		Server: ServerConfig{
 			Port: getEnv("SERVER_PORT", "3000"),
@@ -46,6 +46,14 @@ func LoadConfig() (*Config, error) {
 		if cfg.Database.Password == "" {
 			return nil, fmt.Errorf("数据库密码未设置: 请在环境变量中设置 DB_PASSWORD 或 POSTGRES_PASSWORD")
 		}
+	}
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if adminPassword == "" {
+		return nil, fmt.Errorf("管理员密码未设置: 请设置 ADMIN_PASSWORD")
+	}
+	if jwtSecret == "" {
+		return nil, fmt.Errorf("JWT 密钥未设置: 请设置 JWT_SECRET")
 	}
 
 	return cfg, nil

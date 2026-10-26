@@ -1,473 +1,628 @@
-/* ==========================================================================
-   1. 核心变量定义 (Theme Variables)
-   ========================================================================== */
 :root {
-  /* --- 背景设置 --- */
-  --bg-img: url('/bg.webp');
-  /* 电脑端背景 */
-  --bg-overlay: none;
-  /* 白天无遮罩 */
-
-  /* --- 玻璃态变量 (Glassmorphism) --- */
-  --glass-bg: rgba(255, 255, 255, 0.15);
-  /* 通用玻璃背景 */
-  --glass-bg-hover: rgba(255, 255, 255, 0.25);
-  --glass-border: rgba(255, 255, 255, 0.3);
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  --text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  /* 全局文字阴影增强可读性 */
-
-  /* --- 搜索框配色 --- */
-  --search-modal-bg: rgba(255, 255, 255, 0.95);
-  --search-active-bg: rgba(59, 130, 246, 0.15);
-  --search-active-text: #3b82f6;
-
-  /* --- VitePress 默认变量强制覆盖 --- */
-  --vp-c-bg: transparent;
-  /* 去除默认白底 */
-  --vp-c-text-1: #ffffff;
-  /* 主文字全白 */
-  --vp-c-text-2: #f1f5f9;
-  /* 次要文字浅灰 */
-  --vp-c-brand: #7dd3fc;
-  /* 品牌色(链接/按钮) - 天蓝色 */
-  --vp-c-divider: rgba(255, 255, 255, 0.2);
-  --vp-c-gutter: transparent;
-  --vp-home-hero-name-color: #fff;
+  --mblog-font-display: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+  --mblog-font-sans: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  --mblog-paper: rgba(246, 251, 255, 0.94);
+  --mblog-paper-soft: rgba(255, 255, 255, 0.82);
+  --mblog-input-bg: rgba(255, 255, 255, 0.72);
+  --mblog-border: rgba(65, 52, 39, 0.13);
+  --mblog-border-strong: rgba(65, 52, 39, 0.22);
+  --mblog-accent-soft: rgba(35, 112, 164, 0.09);
+  --mblog-focus-ring: rgba(35, 112, 164, 0.35);
+  --mblog-shadow-sm: 0 8px 24px rgba(15, 24, 26, 0.08);
+  --mblog-shadow-md: 0 18px 45px rgba(15, 24, 26, 0.14);
+  --vp-font-family-base: var(--mblog-font-sans);
+  --vp-font-family-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --vp-c-brand-1: #2370a4;
+  --vp-c-brand-2: #185782;
+  --vp-c-brand-3: #3488bc;
+  --vp-c-brand-soft: var(--mblog-accent-soft);
+  --vp-c-text-1: #20374b;
+  --vp-c-text-2: #516879;
+  --vp-c-text-3: #697f90;
+  --vp-c-bg: #f5faff;
+  --vp-c-bg-alt: #e9f2f8;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #edf5fa;
+  --vp-c-divider: var(--mblog-border);
+  --vp-home-hero-name-color: #fff9ee;
+  --vp-button-brand-bg: var(--vp-c-brand-1);
+  --vp-button-brand-hover-bg: var(--vp-c-brand-2);
+  --vp-button-brand-active-bg: var(--vp-c-brand-2);
+  --vp-button-brand-text: #fffaf2;
 }
 
-/* 深色模式适配 (Dark Mode) */
 html.dark {
-  --bg-overlay: linear-gradient(rgba(2, 6, 23, 0.6), rgba(15, 23, 42, 0.8));
-  --glass-bg: rgba(0, 0, 0, 0.4);
-  --glass-bg-hover: rgba(0, 0, 0, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --search-modal-bg: rgba(15, 23, 42, 0.95);
-  --search-active-bg: rgba(59, 130, 246, 0.3);
-  --search-active-text: #60a5fa;
+  --mblog-paper: rgba(24, 31, 31, 0.95);
+  --mblog-paper-soft: rgba(38, 47, 46, 0.78);
+  --mblog-input-bg: rgba(10, 17, 18, 0.48);
+  --mblog-border: rgba(235, 224, 203, 0.12);
+  --mblog-border-strong: rgba(235, 224, 203, 0.22);
+  --mblog-accent-soft: rgba(222, 142, 101, 0.12);
+  --mblog-focus-ring: rgba(222, 142, 101, 0.22);
+  --mblog-shadow-sm: 0 8px 26px rgba(0, 0, 0, 0.2);
+  --mblog-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.3);
+  --vp-c-brand-1: #8ac9ee;
+  --vp-c-brand-2: #b7e2fa;
+  --vp-c-brand-3: #63acd8;
+  --vp-c-text-1: #edf5fa;
+  --vp-c-text-2: #cfc4b6;
+  --vp-c-text-3: #9f958a;
+  --vp-c-bg: #182020;
+  --vp-c-bg-alt: #121a1b;
+  --vp-c-bg-elv: #202a29;
+  --vp-c-bg-soft: #25302f;
 }
 
+html {
+  background: #122022;
+  scroll-behavior: smooth;
+}
 
-/* ==========================================================================
-   2. 全局背景重置 (Global Reset)
-   ========================================================================== */
-html,
 body {
-  background: var(--bg-overlay), var(--bg-img) center bottom / cover no-repeat fixed;
+  min-height: 100vh;
+  background: #122022;
+  isolation: isolate;
 }
 
-/* 🔥 核弹级去背景：强制去除所有 VitePress 默认的大白块 */
+body::before,
+body::after {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  content: "";
+  pointer-events: none;
+}
+
+body::before {
+  background: url('/bg.webp') center bottom / cover no-repeat;
+}
+
+body::after {
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(6, 38, 65, 0.48), transparent 70%),
+    linear-gradient(180deg, transparent 60%, rgba(6, 38, 65, 0.18));
+}
+
 #app,
-.Layout,
-.VPContent,
-.VPHero,
-.VPFooter,
-.VPNav,
-.VPNavBar,
-.VPNavScreen,
-.VPNavBarTitle,
-.VPSidebar,
-.VPSidebar>.group {
-  background-color: transparent !important;
+.Layout {
+  min-height: 100vh;
+  background: transparent;
+}
+
+::selection {
+  color: #fffaf2;
+  background: var(--vp-c-brand-1);
+}
+
+a,
+button,
+input,
+textarea,
+[tabindex] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--mblog-focus-ring);
+  outline-offset: 3px;
+}
+
+/* 导航保持通透，让背景图继续成为站点识别。 */
+.VPNav {
   background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
 }
 
-/* 全局文字增强 */
-h1,
-h2,
-h3,
-p,
-li,
-.tagline,
-.VPFeature .title,
-.VPFeature .details,
-.VPNavBar .text,
-.VPNavBar .link {
-  text-shadow: var(--text-shadow);
-  color: #fff !important;
+.VPNavBar {
+  background: rgba(13,  50, 80, 0.32) !important;
+  border-bottom: 1px solid rgba(255, 250, 240, 0.1) !important;
+  box-shadow: 0 8px 26px rgba(4, 11, 12, 0.08);
+  backdrop-filter: blur(16px) saturate(115%);
 }
 
-/* ==========================================================================
-   3. 侧边栏与导航栏 (Sidebar & Navbar) 
-   ========================================================================== */
-
-/* --- 1. 顶层容器透明 --- */
-.VPNav,
-.VPNavBar,
-.VPNavScreen {
-  background-color: transparent !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+.VPNavBar.has-sidebar .title {
+  border-bottom: 0 !important;
 }
 
-/* --- 2. Logo 区域精准修复 --- */
-.VPNavBarTitle,
 .VPNavBarTitle .title,
-.VPNavBarTitle .logo,
-.VPSidebar .curtain,
-/* 关键：把那个幕布变透 */
-.VPNavBarTitle .VPImage
-
-/* 关键修正：只针对 Logo 图片本身，不影响文章里的图 */
-  {
-  background-color: transparent !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+.VPNavBarMenuLink,
+.VPNavBarMenuGroup .text,
+.VPNavBarHamburger .container,
+.VPNavScreenMenuLink,
+.VPNavScreenMenuGroup .button {
+  color: rgba(255, 250, 240, 0.9) !important;
+  font-family: var(--mblog-font-sans);
 }
 
-/* 确保 Logo 旁边的文字颜色正确 */
 .VPNavBarTitle .title {
+  font-family: var(--mblog-font-display);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.VPNavBarTitle .logo {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.VPNavBarMenuLink:hover,
+.VPNavBarMenuLink.active,
+.VPNavScreenMenuLink:hover,
+.VPNavScreenMenuLink.active {
+  color: #b7e2fa !important;
+}
+
+.VPNavScreen {
+  background: rgba(12, 24, 26, 0.97) !important;
+}
+
+.VPNavBarSearchButton {
+  color: rgba(255, 250, 240, 0.78) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 999px !important;
+}
+
+.VPNavBarSearchButton:hover {
   color: #ffffff !important;
-  font-weight: 600;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
-  /* 加重阴影防止背景太亮看不清 */
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
 }
 
-/* --- 3. 侧边栏整体 --- */
-.VPSidebar {
-  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
-  backdrop-filter: none !important;
-  background-color: rgba(0, 0, 0, 0.05) !important;
-  /* 极淡黑底 */
+.VPNavBarSearchButton .text,
+.VPNavBarSearchButton .keys,
+.VPNavBarSearchButton .key {
+  color: inherit !important;
 }
 
-/* --- 4. 侧边栏内的分组标题 --- */
-.VPSidebar>.group {
-  background-color: transparent !important;
-  margin-top: 0 !important;
-  padding-top: 20px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+/* 首页：背景图完整可见，内容卡片承担可读性。 */
+.VPHome {
+  padding-bottom: 0 !important;
 }
 
-/* --- 5. 侧边栏链接样式 --- */
-.VPSidebarItem .text {
-  color: #ffffff !important;
-  opacity: 0.85;
-  transition: opacity 0.2s;
+.VPHomeHero {
+  min-height: max(620px, calc(100svh - 64px));
+  display: flex;
+  align-items: center;
 }
 
-.VPSidebarItem .text:hover {
-  opacity: 1;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+.VPHomeHero .container {
+  padding-top: 44px;
+  padding-bottom: 72px;
 }
 
-.VPSidebarItem.is-active .text {
-  color: var(--vp-c-brand) !important;
-  font-weight: 600;
-  text-shadow: 0 0 10px rgba(125, 211, 252, 0.5);
+.VPHomeHero .main {
+  max-width: 720px;
 }
 
-.VPSidebarItem.is-active {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  border-radius: 6px;
+.VPHomeHero .name,
+.VPHomeHero .text,
+.VPHomeHero .tagline {
+  text-shadow: 0 3px 24px rgba(2, 9, 10, 0.72);
 }
 
-/* ==========================================================================
-   4. 内容区域与组件 (Content & Components)
-   ========================================================================== */
-
-/* --- 代码块：白水晶风格 (White Frost) --- */
-.vp-doc div[class*='language-'] {
-  background-color: rgba(255, 255, 255, 0.65) !important;
-  /* 半透明白 */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+.VPHomeHero .name {
+  font-family: var(--mblog-font-display);
+  font-size: clamp(2.6rem, 5.6vw, 4.6rem);
+  letter-spacing: 0.02em;
 }
 
-/* 复制按钮 */
-.vp-doc div[class*='language-'] .copy {
-  color: rgba(0, 0, 0, 0.5) !important;
+.VPHomeHero .text {
+  max-width: 690px;
+  color: #fff9ef;
+  font-family: var(--mblog-font-display);
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  line-height: 1.25;
 }
 
-/* --- 卡片组件 (Features) --- */
-.VPFeature,
+.VPHomeHero .tagline {
+  max-width: 620px;
+  color: rgba(255, 249, 239, 0.82);
+  font-family: var(--mblog-font-sans);
+  font-size: clamp(0.95rem, 2vw, 1.14rem);
+  line-height: 1.8;
+}
+
+.VPButton {
+  min-height: 44px;
+  border-radius: 9px !important;
+  font-family: var(--mblog-font-sans);
+  letter-spacing: 0.02em;
+}
+
+.VPButton.brand {
+  border-color: var(--vp-c-brand-1) !important;
+  box-shadow: 0 8px 24px rgba(20, 9, 5, 0.2);
+}
+
 .VPButton.alt {
-  background-color: var(--glass-bg) !important;
+  color: #fff8ed !important;
+  background: rgba(15, 30, 31, 0.46) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
   backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border) !important;
-  border-radius: 16px;
-  box-shadow: var(--glass-shadow);
+}
+
+.VPButton.alt:hover {
+  background: rgba(15, 30, 31, 0.64) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.VPHomeFeatures {
+  padding-top: 0 !important;
+  padding-bottom: 64px !important;
+}
+
+.VPFeatures .items {
+  gap: 0;
+}
+
+.VPFeature {
+  background: var(--mblog-paper) !important;
+  border: 1px solid rgba(255, 255, 255, 0.38) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 14px 38px rgba(5, 15, 16, 0.16);
+  backdrop-filter: blur(10px);
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .VPFeature:hover {
-  transform: translateY(-5px);
-  background-color: var(--glass-bg-hover) !important;
+  box-shadow: 0 20px 48px rgba(5, 15, 16, 0.22);
+  transform: translateY(-3px);
 }
 
-/* --- 评论区透明化 (适配 Giscus/Waline) --- */
-.vp-doc-after,
-#giscus,
-.giscus,
-.comments-container {
-  margin-top: 32px;
-  padding: 20px;
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  /* 深色半透明底衬托评论 */
-  backdrop-filter: blur(5px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.VPFeature .title {
+  color: var(--vp-c-text-1) !important;
+  font-family: var(--mblog-font-display);
 }
 
-/* --- 按钮样式 --- */
-.VPButton.brand {
-  background-image: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-  color: #fff !important;
-  text-shadow: none;
+.VPFeature .details {
+  color: var(--vp-c-text-2) !important;
+  font-family: var(--mblog-font-sans);
+  line-height: 1.75;
 }
 
-/* ==========================================================================
-   5. 搜索功能优化 (Search) - 修正版
-   ========================================================================== */
-
-/* --- 1. 搜索按钮 (导航栏上的那个) --- */
-/* 这里找回了丢失的透明度 */
-.VPNavBarSearchButton,
-.DocSearch-Button {
-  background-color: var(--glass-bg) !important;
-  /* 使用玻璃变量 */
-  border: 1px solid var(--glass-border) !important;
-  border-radius: 8px;
-  /* 圆角统一 */
-  color: #fff !important;
-  /* 文字颜色 */
-  padding: 0 12px !important;
-  /* 稍微调整内边距 */
+.VPHomeContent {
+  max-width: none !important;
+  padding: 0 !important;
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.36);
+  box-shadow: none;
 }
 
-.VPNavBarSearchButton:hover,
-.DocSearch-Button:hover {
-  background-color: var(--glass-bg-hover) !important;
-  border-color: #fff !important;
+.home-journal {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4rem);
+  background: var(--mblog-paper);
+  border: 1px solid var(--mblog-border);
+  border-radius: 24px 24px 0 0;
 }
 
-/* 占位符文字颜色 (Search / Ctrl K) */
-.DocSearch-Button-Placeholder,
-.VPNavBarSearchButton-placeholder {
-  color: rgba(255, 255, 255, 0.8) !important;
+.home-journal__kicker {
+  margin: 0 0 0.4rem;
+  color: var(--vp-c-brand-1);
+  font-family: var(--mblog-font-sans);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
 }
 
-.DocSearch-Button-Key,
-.VPNavBarSearchButton-key {
-  color: rgba(255, 255, 255, 0.8) !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
-  /* 按键边框也淡化 */
+.home-journal__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-/* --- 2. 搜索弹窗 (点开后的界面) --- */
-.VPLocalSearchBox {
-  background-color: rgba(0, 0, 0, 0.4) !important;
-  /* 弹窗背景遮罩 */
-  backdrop-filter: blur(5px) !important;
+.home-journal__heading h2 {
+  margin: 0;
+  border: 0;
+  color: var(--vp-c-text-1);
+  font-size: clamp(1.8rem, 4vw, 2.65rem);
 }
 
-.VPLocalSearchBox .shell {
-  background-color: var(--search-modal-bg) !important;
-  /* 搜索框主体背景 */
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.home-journal__heading p {
+  margin: 0.45rem 0 0;
+  color: var(--vp-c-text-2);
 }
 
-/* ⚠️ 搜索弹窗内的文字颜色逻辑 (保持之前修正的黑白字) */
-.VPLocalSearchBox,
-.DocSearch-Modal {
-  --vp-c-text-1: #334155 !important;
-  --vp-c-text-2: #64748b !important;
+.home-journal__heading > a {
+  flex: 0 0 auto;
+  color: var(--vp-c-brand-1);
+  font-family: var(--mblog-font-sans);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
 }
 
-.VPLocalSearchBox .search-input {
-  color: #334155 !important;
+/* 文章页：透明边缘保留风景，正文使用稳定的纸张阅读层。 */
+.VPContent.has-sidebar {
   background: transparent !important;
 }
 
-/* 深色模式适配 */
-html.dark .VPLocalSearchBox,
-html.dark .DocSearch-Modal {
-  --vp-c-text-1: #fff !important;
+.VPSidebar {
+  background: rgba(12, 25, 27, 0.8) !important;
+  border-right: 1px solid rgba(255, 250, 240, 0.1) !important;
+  backdrop-filter: blur(15px);
 }
 
-html.dark .VPLocalSearchBox .search-input {
-  color: #fff !important;
+.VPSidebar .curtain {
+  background: transparent !important;
 }
 
-/* ==========================================================================
-   6. 移动端适配 (Mobile)
-   ========================================================================== */
-@media (max-width: 768px) {
-  :root {
-    --bg-img: url('/bg-mobile.webp');
-    /* 确保你有这个图片 */
-    /* 手机端加深遮罩，防止字看不清 */
-    --bg-overlay: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
-  }
-
-  html,
-  body {
-    background-attachment: scroll !important;
-    /* 手机端取消 fixed 防止抖动 */
-    background-size: cover !important;
-    background-position: center top !important;
-  }
-
-  /* 修复手机侧边栏顶部 */
-  .VPNavScreen {
-    background-color: rgba(0, 0, 0, 0.6) !important;
-    /* 手机菜单展开时给个深色背景 */
-    backdrop-filter: blur(20px) !important;
-  }
+.VPSidebarItem .text,
+.VPSidebarItem .caret {
+  color: rgba(255, 250, 240, 0.75) !important;
+  font-family: var(--mblog-font-sans);
 }
 
-/* ==========================================================================
-   7. 文章标签透明化 (Article Tags)
-   ========================================================================== */
-.article-tags .tag {
-  background-color: rgba(255, 255, 255, 0.2) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  padding: 0.35rem 0.9rem;
-  border-radius: 20px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+.VPSidebarItem.level-0 > .item > .text {
+  color: #fff9ef !important;
+  font-family: var(--mblog-font-display);
+  font-size: 0.94rem;
+  letter-spacing: 0.05em;
 }
 
-.article-tags .tag:hover {
-  background-color: rgba(255, 255, 255, 0.35) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.VPSidebarItem.is-active > .item .link > .text,
+.VPSidebarItem .link:hover > .text {
+  color: #b7e2fa !important;
 }
 
-
-/* ==========================================================================
-   8. 评论区透明化 (Comment Section)
-   ========================================================================== */
-
-/* 评论区标题 */
-.comment-section .comment-title {
-  color: #ffffff !important;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
-}
-
-/* 评论表单容器 */
-.comment-form {
-  background-color: rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.VPDoc .content-container {
+  max-width: 820px !important;
+  padding: clamp(1.4rem, 4vw, 3rem) !important;
+  background: var(--mblog-paper);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: var(--mblog-shadow-md);
+  backdrop-filter: blur(12px);
 }
 
-/* 表单标题和标签 */
-.comment-form h3,
-.comment-form label,
-.comments-list h3 {
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+.vp-doc {
+  color: var(--vp-c-text-1);
+  font-size: 16px;
+  line-height: 1.9;
 }
 
-/* 输入框透明化 */
-.comment-form input,
-.comment-form textarea,
-.reply-form input,
-.reply-form textarea {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  color: #ffffff !important;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  border-radius: 8px;
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  color: var(--vp-c-text-1);
+  font-family: var(--mblog-font-display);
+  letter-spacing: 0.01em;
 }
 
-.comment-form input::placeholder,
-.comment-form textarea::placeholder,
-.reply-form input::placeholder,
-.reply-form textarea::placeholder {
-  color: rgba(255, 255, 255, 0.6) !important;
+.vp-doc h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  line-height: 1.28;
 }
 
-.comment-form input:focus,
-.comment-form textarea:focus,
-.reply-form input:focus,
-.reply-form textarea:focus {
-  border-color: var(--vp-c-brand) !important;
-  box-shadow: 0 0 12px rgba(125, 211, 252, 0.3);
-  outline: none;
+.vp-doc h2 {
+  margin-top: 2.3rem;
+  border-top-color: var(--mblog-border);
 }
 
-/* 提交按钮 */
-.comment-form .submit-btn,
-.reply-form .submit-btn {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
-  border: none !important;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-  color: #fff !important;
+.vp-doc p,
+.vp-doc li {
+  color: var(--vp-c-text-2);
 }
 
-.comment-form .submit-btn:hover,
-.reply-form .submit-btn:hover {
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-  transform: translateY(-2px);
+.vp-doc a {
+  color: var(--vp-c-brand-1);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
-/* 评论列表项 */
-.comment-item {
-  border-bottom-color: rgba(255, 255, 255, 0.15) !important;
+.vp-doc blockquote {
+  color: var(--vp-c-text-2);
+  background: var(--mblog-accent-soft);
+  border-left-color: var(--vp-c-brand-1);
 }
 
-.comment-author {
-  color: var(--vp-c-brand) !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-.comment-date {
-  color: rgba(255, 255, 255, 0.6) !important;
-}
-
-.comment-content {
-  color: #ffffff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-/* 回复区域 */
-.replies {
-  border-left-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-.reply-form {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.vp-doc div[class*='language-'] {
+  background: #20292a !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-/* 取消按钮 */
-.cancel-btn {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
-  color: #ffffff !important;
+.vp-doc :not(pre) > code {
+  color: var(--vp-c-brand-1);
+  background: var(--mblog-accent-soft);
 }
 
-/* 回复按钮 */
-.reply-btn {
-  color: var(--vp-c-brand) !important;
+.vp-doc table {
+  display: table;
+  width: 100%;
+  font-family: var(--mblog-font-sans);
+  font-size: 0.86rem;
 }
 
-/* 无评论提示 */
-.no-comments,
-.loading {
-  color: rgba(255, 255, 255, 0.75) !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+.vp-doc tr:nth-child(2n) {
+  background: var(--mblog-paper-soft);
+}
+
+.VPDocAsideOutline .content,
+.VPDocAsideOutline .outline-title,
+.VPDocAsideOutline .outline-link,
+.VPDocFooter .prev-next,
+.VPDocFooter .pager-link {
+  font-family: var(--mblog-font-sans);
+}
+
+.VPDocAsideOutline .outline-title,
+.VPDocAsideOutline .outline-link {
+  color: rgba(255, 250, 240, 0.76);
+}
+
+.VPDocAsideOutline .outline-link.active,
+.VPDocAsideOutline .outline-link:hover {
+  color: #b7e2fa;
+}
+
+.VPDocFooter .pager-link {
+  background: var(--mblog-paper);
+  border-color: var(--mblog-border-strong);
+  box-shadow: var(--mblog-shadow-sm);
+}
+
+.VPFooter {
+  background: rgba(9, 20, 21, 0.76) !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.VPFooter .message,
+.VPFooter .copyright {
+  color: rgba(255, 250, 240, 0.62) !important;
+  font-family: var(--mblog-font-sans);
+}
+
+/* 本地搜索采用实底，避免结果与背景图互相干扰。 */
+.VPLocalSearchBox {
+  background: rgba(5, 13, 14, 0.72) !important;
+  backdrop-filter: blur(8px);
+}
+
+.VPLocalSearchBox .shell {
+  background: var(--vp-c-bg-elv) !important;
+  border: 1px solid var(--mblog-border-strong) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 26px 80px rgba(2, 8, 9, 0.34) !important;
+}
+
+.VPLocalSearchBox .search-input {
+  color: var(--vp-c-text-1) !important;
+  background: transparent !important;
+}
+
+.VPLocalSearchBox .result {
+  border-color: var(--mblog-border) !important;
+  border-radius: 10px !important;
+}
+
+.VPLocalSearchBox .result.selected {
+  background: var(--mblog-accent-soft) !important;
+  border-color: var(--vp-c-brand-1) !important;
+}
+
+@media (max-width: 960px) {
+  .VPDoc .content-container {
+    border-radius: 14px;
+  }
+
+  .VPDocAsideOutline .outline-title,
+  .VPDocAsideOutline .outline-link {
+    color: var(--vp-c-text-2);
+  }
+}
+
+@media (max-width: 768px) {
+  body::before {
+    background-image: url('/bg-mobile.webp');
+    background-position: center top;
+  }
+
+  body::after {
+    background: linear-gradient(180deg, rgba(6, 38, 65, 0.28), rgba(6, 38, 65, 0.12) 60%, rgba(6, 38, 65, 0.3));
+  }
+
+  .VPNavBar {
+    backdrop-filter: blur(12px);
+  }
+
+  .VPHomeHero {
+    min-height: calc(100svh - 64px);
+    text-align: left;
+  }
+
+  .VPHomeHero .container {
+    padding-bottom: 48px;
+  }
+
+  .home-journal__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .VPSidebar {
+    background: rgba(10, 22, 24, 0.97) !important;
+    backdrop-filter: none;
+  }
+
+  .VPDoc {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .VPDoc .content-container {
+    padding: 1.25rem !important;
+    border-radius: 12px;
+    backdrop-filter: none;
+  }
+}
+
+@media (max-width: 460px) {
+  .VPHomeHero .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .VPHomeHero .action,
+  .VPHomeHero .VPButton {
+    width: 100%;
+  }
+
+  .VPHomeHero .VPButton {
+    justify-content: center;
+  }
+
+  .vp-doc {
+    font-size: 15px;
+  }
+
+  .vp-doc table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 清除默认导航内层的实色底，保持整条导航一致。 */
+.VPNavBar .content-body,
+.VPNavBar .divider,
+.VPNavBar .divider-line {
+  background: transparent !important;
+}
+
+.VPHomeHero .container { width: 100%; }
+.VPHomeHero .main { margin-right: auto; }
+.VPHomeHero .name { line-height: 1.2; padding-bottom: 18px; }
+.VPHomeHero .text { max-width: 540px; }
+.VPHomeHero .tagline { max-width: 430px; }
+.VPHomeFeatures .item { min-width: 0; }
+.VPFeature .link-text { color: var(--vp-c-brand-1); }
+@media (max-width: 768px) {
+  .VPHomeHero .container { padding-top: 24px; padding-bottom: 120px; }
+  .VPHomeHero .main { text-align: left; }
+  .VPHomeHero .actions { justify-content: flex-start; }
+  .home-journal { margin: 0 16px; padding: 28px 20px; }
 }

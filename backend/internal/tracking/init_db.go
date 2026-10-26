@@ -62,6 +62,8 @@ func InitSchema(db *sql.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_track_event_platform ON track_event(platform)",
 		"CREATE INDEX IF NOT EXISTS idx_track_event_metadata ON track_event USING gin (metadata)",
 		"CREATE INDEX IF NOT EXISTS idx_track_event_custom_properties ON track_event USING gin (custom_properties)",
+		"CREATE INDEX IF NOT EXISTS idx_track_event_type_created_at ON track_event(event_type, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_track_event_page_event ON track_event(page_path, event_type)",
 	}
 
 	for _, indexSQL := range indices {

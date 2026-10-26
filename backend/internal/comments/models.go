@@ -25,6 +25,7 @@ type CommentRequest struct {
 	Email     string `json:"email"`                         // 评论者邮箱，可选
 	Content   string `json:"content" binding:"required"`    // 评论内容
 	ReplyTo   *int   `json:"reply_to"`                      // 回复的评论ID
+	Website   string `json:"website"`                       // 蜜罐字段，正常用户应保持为空
 }
 
 // CommentResponse 代表评论响应

@@ -9,7 +9,7 @@ WORKDIR /build
 RUN apk add --no-cache git tzdata
 
 # 安装 pnpm 并设置镜像源
-RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com
+RUN npm install -g pnpm@9.10.0 && pnpm config set registry https://registry.npmmirror.com
 
 # 复制 pnpm 配置和 lock 文件
 COPY package.json pnpm-lock.yaml ./
@@ -34,20 +34,11 @@ RUN apk add --no-cache tzdata && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
 
-# 从构建阶段复制生成的静态文件到备份目录
-# 这样即使 volume 挂载覆盖 /usr/share/nginx/html，我们仍有备份
-COPY --from=builder /build/docs/.vitepress/dist /app/dist-backup
+# 静态产物直接固化到运行镜像。
+COPY --from=builder /build/docs/.vitepress/dist /usr/share/nginx/html
 
 # 复制 nginx 配置
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
-# 复制并设置 entrypoint 脚本
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN apk add --no-cache dos2unix && dos2unix /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
 # 暴露端口
 EXPOSE 80
-
-# 使用 entrypoint 脚本启动
-ENTRYPOINT ["/docker-entrypoint.sh"]

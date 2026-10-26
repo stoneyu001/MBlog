@@ -1,124 +1,340 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理员登录 - MBlog</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .glass {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-        }
-        .input-focus:focus {
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172426">
+  <meta name="robots" content="noindex,nofollow">
+  <title>管理入口 · StoneYu Blog</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #29251f;
+      --muted: #6f665c;
+      --paper: #f8f3e9;
+      --paper-soft: #efe7da;
+      --line: rgba(67, 55, 43, .18);
+      --accent: #9d492b;
+      --accent-dark: #79351f;
+      --danger: #a33838;
+      --focus: rgba(157, 73, 43, .22);
+      --display: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+      --sans: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 20%, rgba(135, 164, 151, .22), transparent 34%),
+        radial-gradient(circle at 80% 78%, rgba(170, 91, 58, .2), transparent 30%),
+        #142224;
+      font-family: var(--sans);
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size: 38px 38px;
+      content: "";
+      pointer-events: none;
+    }
+
+    .top-link {
+      position: fixed;
+      top: 24px;
+      left: 28px;
+      z-index: 2;
+      color: rgba(255, 250, 240, .75);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .top-link:hover { color: #fffaf0; }
+
+    .page {
+      position: relative;
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+      padding: 76px 20px 40px;
+    }
+
+    .login-shell {
+      display: grid;
+      width: min(880px, 100%);
+      grid-template-columns: minmax(0, .9fr) minmax(360px, 1fr);
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 20px;
+      box-shadow: 0 34px 90px rgba(2, 9, 10, .34);
+    }
+
+    .login-note {
+      position: relative;
+      display: flex;
+      min-height: 540px;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 44px;
+      color: #fff8ed;
+      background:
+        linear-gradient(145deg, rgba(12, 29, 31, .84), rgba(38, 60, 55, .84)),
+        #233b3a;
+    }
+
+    .login-note::after {
+      position: absolute;
+      right: -70px;
+      bottom: -80px;
+      width: 260px;
+      height: 260px;
+      background: rgba(214, 131, 87, .12);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .mark {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 50%;
+      font-family: var(--display);
+      font-size: 22px;
+    }
+
+    .note-copy { position: relative; z-index: 1; }
+    .note-copy p:first-child {
+      margin: 0 0 12px;
+      color: #eaa27d;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .2em;
+    }
+
+    .note-copy h1 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: clamp(30px, 4vw, 43px);
+      font-weight: 650;
+      line-height: 1.28;
+    }
+
+    .note-copy p:last-child {
+      max-width: 330px;
+      margin: 18px 0 0;
+      color: rgba(255,248,237,.68);
+      font-family: var(--display);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .login-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 48px;
+    }
+
+    .eyebrow {
+      margin: 0 0 9px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+
+    .login-panel h2 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 28px;
+    }
+
+    .login-panel > p {
+      margin: 10px 0 30px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      margin-bottom: 7px;
+      color: #514940;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .field input {
+      width: 100%;
+      height: 46px;
+      padding: 0 13px;
+      color: var(--ink);
+      background: rgba(255,255,255,.7);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font: inherit;
+      transition: border-color .16s ease, box-shadow .16s ease;
+    }
+
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--focus);
+      outline: 0;
+    }
+
+    .submit {
+      display: inline-flex;
+      width: 100%;
+      height: 46px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 4px;
+      color: #fffaf2;
+      background: var(--accent);
+      border: 0;
+      border-radius: 9px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      transition: background .16s ease, transform .16s ease;
+    }
+
+    .submit:hover:not(:disabled) { background: var(--accent-dark); transform: translateY(-1px); }
+    .submit:disabled { cursor: wait; opacity: .68; }
+
+    .error {
+      display: none;
+      margin: 16px 0 0;
+      padding: 10px 12px;
+      color: var(--danger);
+      background: rgba(163,56,56,.08);
+      border: 1px solid rgba(163,56,56,.16);
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .error.visible { display: block; }
+
+    .hint {
+      margin-top: 24px;
+      color: #8a8075;
+      font-size: 11px;
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+    @media (max-width: 720px) {
+      .top-link { top: 18px; left: 20px; }
+      .login-shell { max-width: 440px; grid-template-columns: 1fr; }
+      .login-note { min-height: 210px; padding: 30px; }
+      .note-copy h1 { font-size: 28px; }
+      .note-copy p:last-child { display: none; }
+      .login-panel { padding: 34px 28px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
 </head>
-
-<body class="flex items-center justify-center p-4">
-    <div class="glass rounded-2xl shadow-2xl w-full max-w-md p-8">
-        <!-- Logo -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-xl mb-4">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                </svg>
-            </div>
-            <h1 class="text-2xl font-bold text-gray-800">MBlog 管理后台</h1>
-            <p class="text-gray-500 mt-2">请输入管理员凭据</p>
+<body>
+  <a class="top-link" href="/">← 返回博客</a>
+  <main class="page">
+    <section class="login-shell" aria-labelledby="login-title">
+      <aside class="login-note">
+        <div class="mark" aria-hidden="true">石</div>
+        <div class="note-copy">
+          <p>STONEYU · ARCHIVE</p>
+          <h1>把访问数据整理成<br>可行动的线索。</h1>
+          <p>这里仅用于站点维护、访问分析与评论审核，不承担文章在线编辑和运行时构建。</p>
         </div>
+      </aside>
 
-        <!-- Login Form -->
-        <form id="loginForm" class="space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
-                <input type="text" id="username" name="username" required
-                    class="input-focus w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 transition-all"
-                    placeholder="请输入用户名">
-            </div>
+      <div class="login-panel">
+        <p class="eyebrow">ADMIN ACCESS</p>
+        <h2 id="login-title">管理入口</h2>
+        <p>使用服务器环境变量中配置的管理员凭据登录。</p>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">密码</label>
-                <input type="password" id="password" name="password" required
-                    class="input-focus w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 transition-all"
-                    placeholder="请输入密码">
-            </div>
-
-            <!-- Error Message -->
-            <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                用户名或密码错误
-            </div>
-
-            <button type="submit" id="submitBtn"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center">
-                <span id="btnText">登 录</span>
-                <svg id="btnSpinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            </button>
+        <form id="login-form">
+          <div class="field">
+            <label for="username">用户名</label>
+            <input id="username" name="username" type="text" autocomplete="username" maxlength="100" required autofocus>
+          </div>
+          <div class="field">
+            <label for="password">密码</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required>
+          </div>
+          <button id="submit-button" class="submit" type="submit">登录后台</button>
+          <p id="error-message" class="error" role="alert" aria-live="assertive"></p>
         </form>
+        <p class="hint">登录状态通过 HttpOnly Cookie 保存。请勿在公共设备上保持后台页面开启。</p>
+      </div>
+    </section>
+  </main>
 
-        <!-- Footer -->
-        <p class="text-center text-gray-400 text-sm mt-8">
-            默认账号：admin / admin123
-        </p>
-    </div>
+  <script>
+    const form = document.getElementById('login-form')
+    const submitButton = document.getElementById('submit-button')
+    const errorMessage = document.getElementById('error-message')
 
-    <script>
-        const form = document.getElementById('loginForm');
-        const errorMsg = document.getElementById('errorMsg');
-        const submitBtn = document.getElementById('submitBtn');
-        const btnText = document.getElementById('btnText');
-        const btnSpinner = document.getElementById('btnSpinner');
+    function showError(message) {
+      errorMessage.textContent = message
+      errorMessage.classList.add('visible')
+    }
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            // 显示加载状态
-            submitBtn.disabled = true;
-            btnText.textContent = '登录中...';
-            btnSpinner.classList.remove('hidden');
-            errorMsg.classList.add('hidden');
+    async function redirectIfAuthenticated() {
+      try {
+        const response = await fetch('/api/auth/check', { headers: { Accept: 'application/json' } })
+        const data = await response.json()
+        if (response.ok && data.authenticated) window.location.replace('/admin')
+      } catch (_) {
+        // 登录表单仍可正常使用。
+      }
+    }
 
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      errorMessage.classList.remove('visible')
+      submitButton.disabled = true
+      submitButton.textContent = '正在验证…'
 
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+          })
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || data.error || '登录失败，请检查凭据')
+        }
+        window.location.replace('/admin')
+      } catch (error) {
+        showError(error instanceof Error ? error.message : '网络异常，请稍后重试')
+      } finally {
+        submitButton.disabled = false
+        submitButton.textContent = '登录后台'
+      }
+    })
 
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // 登录成功，跳转到管理页面
-                    window.location.href = '/admin';
-                } else {
-                    // 显示错误
-                    errorMsg.textContent = data.message || '用户名或密码错误';
-                    errorMsg.classList.remove('hidden');
-                }
-            } catch (err) {
-                errorMsg.textContent = '网络错误，请稍后重试';
-                errorMsg.classList.remove('hidden');
-            } finally {
-                // 恢复按钮状态
-                submitBtn.disabled = false;
-                btnText.textContent = '登 录';
-                btnSpinner.classList.add('hidden');
-            }
-        });
-    </script>
+    redirectIfAuthenticated()
+  </script>
 </body>
-
 </html>

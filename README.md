@@ -1,6 +1,6 @@
 # MBlog
 
-基于 **Go + VitePress + PostgreSQL** 的个人博客系统，支持 Docker 一键部署。
+基于 **Go + VitePress + PostgreSQL** 的个人博客系统，支持中文站内搜索、访问分析、评论审核和 Docker 一键部署。
 
 ## 🚀 快速部署到服务器
 
@@ -19,7 +19,7 @@ cd MBlog
 
 # 2. 配置环境变量
 cp .env.example .env
-nano .env  # 修改数据库密码
+nano .env  # 填写三个必填值
 
 # 3. 一键部署（包括 Docker 构建、Nginx SSL 配置、证书申请、自动续签）
 sudo bash deploy/deploy.sh
@@ -27,7 +27,7 @@ sudo bash deploy/deploy.sh
 
 部署完成后访问：
 - 🌐 博客首页：`https://www.stoneyu.fun`
-- 🔧 管理后台：`https://www.stoneyu.fun/admin`（账号：`admin` / `admin123`）
+- 📊 数据分析后台：`https://www.stoneyu.fun/admin`（凭据由 `.env` 配置）
 
 ### 更新部署
 
@@ -36,6 +36,12 @@ cd ~/MBlog
 git pull
 sudo bash deploy/deploy.sh --update
 ```
+
+博客文章位于 `frontend/docs`，通过 Git 管理。文章或前端代码变更后必须执行
+`--update` 重新构建不可变镜像；仅重启容器不会发布新内容。
+
+从旧版在线编辑功能迁移时，先在服务器运行
+`git status --short -- frontend/docs`。如有未提交文章，请先提交或备份；新版后台不再直接修改服务器上的 Markdown。
 
 ### 仅重启服务
 
@@ -55,9 +61,10 @@ sudo bash deploy/deploy.sh --restart
 
 ## 核心功能
 
-- 📝 Markdown 文章管理
-- 📊 实时访问统计
-- 💬 评论系统
+- 📝 Git 管理的 Markdown 文章
+- 🔎 支持中文单字与二元词匹配的站内搜索
+- 📊 PV / UV、近 7 天趋势、热门文章与设备分布
+- 💬 默认待审核的两级评论系统
 - 🔐 管理员认证
 
 ## 项目结构
@@ -92,6 +99,16 @@ Docker: backend Go API
 Docker: PostgreSQL
 ```
 
+VitePress 静态文件在 Docker 镜像构建阶段生成。运行中的后端不修改 Markdown、
+不安装 Node.js，也不通过 HTTP 请求触发站点构建。
+
+评论提交后默认进入 `pending` 状态，管理员可在 `/admin` 中批准、拒绝或删除；
+只有 `approved` 评论会在文章页公开。访问统计只以 `PAGEVIEW` 计算 PV / UV，
+后端接口请求不会混入博客访问数据。
+
+文章改名或移动路径前，建议在 frontmatter 中设置固定的 `commentId`，例如
+`commentId: tech-database-index-01`，以保持评论归属稳定；未设置时沿用旧版路径标识规则。
+
 ## 常用命令
 
 ```bash
@@ -115,8 +132,11 @@ sudo systemctl status certbot-renew.timer  # 查看自动续签状态
 ## 配置
 
 1. 复制 `.env.example` 为 `.env`
-2. 修改数据库密码和端口
+2. 填写 `POSTGRES_PASSWORD`、`ADMIN_PASSWORD` 和 `JWT_SECRET`；后台用户名默认为 `admin`
 3. 运行 `sudo bash deploy/deploy.sh` 完成全部配置
+
+其余参数均有默认值。旧 `.env` 中已有的 `POSTGRES_USER`、`POSTGRES_DB`、
+`ADMIN_USER`、`FRONTEND_PORT` 等可选配置仍会继续生效，无需删除。
 
 ## License
 
